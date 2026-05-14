@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers\API;
 
-use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
-use Illuminate\Support\Facades\Validator;
+use App\Models\PhysicalAssessment;
+use App\Models\User;
 use App\Repositories\Contracts\API\AuthRepositoryInterface;
 use App\Repositories\Contracts\API\OrganisationRepositoryInterface;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
 
 class PersonalInfoController extends Controller
 {
@@ -35,10 +37,6 @@ class PersonalInfoController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'name' => 'required|string',
-            //'email' => 'required|email|unique:users,email,' . auth('sanctum')->user()->id,
-            //'password' => 'nullable|string|min:6|confirmed|regex:/[^A-Za-z0-9]/',
-            //'number' => 'required|string',
-            //'image' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
             'cnic' => 'required|numeric',
             'dob' => 'required|date|before_or_equal:today',
             'organisation_type' => 'required|numeric|exists:organisation_types,id',
@@ -51,9 +49,6 @@ class PersonalInfoController extends Controller
             'guardian_number' => 'nullable|string',
             'address' => 'required|string',
             'guardian_cnic' => 'required|string',
-            // 'country' => 'required|numeric|exists:countries,id',
-            // 'state_province' => 'required|numeric|exists:provinces,id',
-            // 'city' => 'required|numeric|exists:cities,id',
         ]);
 
 
@@ -71,9 +66,40 @@ class PersonalInfoController extends Controller
         return $this->success($userdata, 'Profile updated successfully', 200);
     }
 
+    public function updateInfo(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'exercise_type' => 'nullable|string',
+            'organisation_type' => 'nullable|numeric|exists:organisation_types,id',
+            'organisation_id' => 'nullable|numeric|exists:organisations,id|required_with:organisation_type',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->unprocessable($validator->errors()->toArray(), 'Validation Error');
+        }
+
+        $user = auth()->user();
+
+        if (!$user) {
+            return $this->unauthorized('Unauthorized', [], 401);
+        }
+
+        $data = $validator->validated();
+
+        PhysicalAssessment::where('user_id', $user->id)->update([
+            'exercise_type' => $data['exercise_type'],
+        ]);
+
+        User::where('id', $user->id)->update([
+            'organisation_type' => $data['organisation_type'],
+            'organisation_id' => $data['organisation_id'],
+        ]);
+
+        return $this->success([], 'Info updated successfully', 200);
+    }
+
     public function physical_assessment(Request $request)
     {
-        // dd($request->all());
         $validator = Validator::make($request->all(), [
             'user_id' => 'required|numeric|exists:users,id',
             'height_cm' => 'required|numeric',

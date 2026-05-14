@@ -71,6 +71,7 @@ Route::prefix('v1')->middleware('auth:sanctum')->group(function () {
 
 
     Route::get('/profile', [AuthController::class, 'profile']);
+    Route::post('/update-info', [PersonalInfoController::class, 'updateInfo']);
     Route::post('/user-personal-info', [PersonalInfoController::class, 'profile']);
     Route::post('/update-profile', [ProfileController::class, 'updateProfile']);
     Route::post('/check-username', [ProfileController::class, 'checkUserName']);
