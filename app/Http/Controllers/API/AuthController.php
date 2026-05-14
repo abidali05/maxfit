@@ -236,6 +236,8 @@ class AuthController extends Controller
             return $this->unauthorized('Unauthorized', [], 401);
         }
 
+        $user->load('physical_assessment');
+
         $isAgeChanged = false;
         $currentAge = null;
 
