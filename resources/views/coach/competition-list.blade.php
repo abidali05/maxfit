@@ -14,6 +14,7 @@
                             <thead>
                                 <tr class="text-dark">
                                     <th>S.No</th>
+                                    <th>Competition Name</th>
                                     <th>City</th>
                                     <th>Start</th>
                                     <th>End</th>
@@ -27,6 +28,7 @@
                                 @foreach ($competitionDetails as $i => $competition)
                                     <tr>
                                         <td>{{ $i + 1 }}</td>
+                                        <td>{{ $competition->competition?->name ?? 'N/A' }}</td>
                                         <td>{{ $competition->city }}</td>
                                         <td>
                                             {{ \Carbon\Carbon::parse($competition->start_date)->format('d M Y') }}<br>

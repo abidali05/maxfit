@@ -12,13 +12,43 @@
                         @csrf
                         @method('PUT')
 
-                        @foreach ($exercises as $exercise)
-                            <div class="mb-3">
-                                <label for="score_{{ $exercise->id }}" class="form-label">{{ $exercise->name }}</label>
-                                <input type="number" step="0.01" name="scores[{{ $exercise->id }}]" class="form-control"
-                                    value="{{ $results[$exercise->id]->score ?? '' }}" required>
+                        @forelse ($sets as $set)
+                            @php
+                                $setExercises = $set->setExercises->filter(fn($se) => !empty($se->exercise));
+                            @endphp
+
+                            @if ($setExercises->isEmpty())
+                                @continue
+                            @endif
+
+                            <div class="mb-4 text-start">
+                                <h5 class="mb-3">{{ $set->name }}</h5>
+
+                                @foreach ($setExercises as $setExercise)
+                                    @php
+                                        $exercise = $setExercise->exercise;
+                                        $result = $results->get($exercise->id);
+                                        $exerciseLinks = collect($result?->videos ?? []);
+                                        $primaryLink = optional($exerciseLinks->first())->youtube_link;
+                                    @endphp
+                                    <div class="mb-3 border p-3 rounded">
+                                        <h6>{{ $exercise->name }}</h6>
+                                        <label for="score_{{ $exercise->id }}" class="form-label">Score</label>
+                                        <input type="number" step="0.01" name="scores[{{ $exercise->id }}]"
+                                            class="form-control" value="{{ $result?->score ?? '' }}" required min="0">
+
+                                        <div class="mt-3">
+                                            <label class="form-label">YouTube Video Link</label>
+                                            <input type="url" class="form-control"
+                                                name="youtube_links[{{ $exercise->id }}][]" value="{{ $primaryLink ?? '' }}"
+                                                placeholder="https://www.youtube.com/watch?v=...">
+                                        </div>
+                                    </div>
+                                @endforeach
                             </div>
-                        @endforeach
+                        @empty
+                            <div class="text-start text-muted">No sets found for this competition.</div>
+                        @endforelse
 
                         <button type="submit" class="btn btn-success">Save Scores</button>
                     </form>

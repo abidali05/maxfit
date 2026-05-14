@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\API;
 
 use App\Models\Competition;
+use App\Models\Set;
 use Illuminate\Http\Request;
 use App\Models\CompetitionUser;
 use App\Models\RulesOfCounting;
@@ -18,12 +19,12 @@ use Illuminate\Support\Facades\Schema;
 
 class CompetitionController extends Controller
 {
+
     public function getCompetition()
     {
         $authId = Auth::id();
 
         $with = [
-            'details',
             'details.coach',
             'details.venueRelation',
             'videos',
@@ -42,42 +43,97 @@ class CompetitionController extends Controller
 
         $competitions = Competition::with($with)
             ->where('status', 'active')
-            ->get()
-            ->map(function ($competition) use ($authId) {
-                // Find the status via competition_details â†’ competition_users
+            ->get();
+
+        $genzValues = $competitions
+            ->map(fn($competition) => strtolower((string) $competition->getRawOriginal('genz')))
+            ->filter()
+            ->unique()
+            ->values();
+
+        $setsByGenz = collect();
+
+        if ($genzValues->isNotEmpty()) {
+            $setsByGenz = Set::query()
+                ->with(['setExercises.exercise'])
+                ->whereIn(DB::raw('LOWER(genz)'), $genzValues->all())
+                ->orderBy('id')
+                ->get()
+                ->groupBy(fn($set) => strtolower((string) $set->getRawOriginal('genz')));
+        }
+
+        $competitions = $competitions
+            ->map(function ($competition) use ($authId, $setsByGenz) {
+
                 $competition->status_type = DB::table('competition_users')
-                    ->join('competition_details', 'competition_users.competition_detail_id', '=', 'competition_details.id')
-                    ->where('competition_details.competition_id', $competition->id)
+                    ->leftJoin(
+                        'competition_details',
+                        'competition_users.competition_detail_id',
+                        '=',
+                        'competition_details.id'
+                    )
                     ->where('competition_users.user_id', $authId)
+                    ->where(function ($query) use ($competition) {
+                        $query->where('competition_users.competition_id', $competition->id)
+                            ->orWhere('competition_details.competition_id', $competition->id);
+                    })
                     ->value('competition_users.status');
 
-                $primaryDetail = $competition->relationLoaded('details') ? $competition->details->first() : null;
+                $primaryDetail = $competition->relationLoaded('details')
+                    ? $competition->details->first()
+                    : null;
+
                 $competition->setAttribute('venue_id', $primaryDetail?->venue_id);
                 $competition->setAttribute('venue_name', $primaryDetail?->venueRelation?->name);
 
                 $countryId = $competition->country;
                 $countryName = $competition->country_name ?? null;
+
                 $competition->setAttribute('country_id', $countryId);
                 $competition->setAttribute('country', $countryName);
                 $competition->makeHidden(['country_name']);
 
                 $organizationTypes = $competition->relationLoaded('organizationTypes')
-                    ? $competition->organizationTypes->map(fn ($type) => ['id' => $type->id, 'name' => $type->name])->values()
+                    ? $competition->organizationTypes
+                    ->map(fn($type) => [
+                        'id' => $type->id,
+                        'name' => $type->name,
+                    ])
+                    ->values()
                     : collect();
 
-                if ($organizationTypes->isEmpty() && $competition->relationLoaded('organisationType') && $competition->organisationType) {
+                if (
+                    $organizationTypes->isEmpty()
+                    && $competition->relationLoaded('organisationType')
+                    && $competition->organisationType
+                ) {
                     $organizationTypes = collect([
-                        ['id' => $competition->organisationType->id, 'name' => $competition->organisationType->name],
+                        [
+                            'id' => $competition->organisationType->id,
+                            'name' => $competition->organisationType->name,
+                        ],
                     ]);
                 }
 
                 $organizations = $competition->relationLoaded('organisations')
-                    ? $competition->organisations->map(fn ($org) => ['id' => $org->id, 'name' => $org->name])->values()
+                    ? $competition->organisations
+                    ->map(fn($org) => [
+                        'id' => $org->id,
+                        'name' => $org->name,
+                    ])
+                    ->values()
                     : collect();
 
-                if ($organizations->isEmpty() && $competition->relationLoaded('organisation') && $competition->organisation) {
+                if (
+                    $organizations->isEmpty()
+                    && $competition->relationLoaded('organisation')
+                    && $competition->organisation
+                ) {
                     $organizations = collect([
-                        ['id' => $competition->organisation->id, 'name' => $competition->organisation->name],
+                        [
+                            'id' => $competition->organisation->id,
+                            'name' => $competition->organisation->name,
+                        ],
                     ]);
                 }
 
@@ -85,23 +141,31 @@ class CompetitionController extends Controller
                 $competition->setAttribute('organizations', $organizations);
 
                 return $competition;
-            });
+            })
+            ->filter(function ($competition) {
+                return strtolower((string) $competition->status_type) !== 'accepted';
+            })
+            ->values();
 
         return $this->success([
             'competitions' => $competitions,
         ], 'Competitions fetched successfully', 200);
     }
 
-
     public function getCompetitionStatus($status)
     {
         $authId = Auth::id();
 
         // Map numeric status to text
-        $statusText = $status == 1 ? 'accepted' : 'rejected';
+        $statusText = match ((int) $status) {
+            1 => 'accepted',
+            3 => 'completed',
+            default => 'rejected',
+        };
 
         $competitions = CompetitionUser::with([
-            'competitionDetail.Competition'
+            'competitionDetail.competition',
+            'competition'
         ])
             ->where('user_id', $authId)
             ->where('status', $statusText)
@@ -116,7 +180,7 @@ class CompetitionController extends Controller
 
     public function competitionDetail($id)
     {
-        $competition = Competition::findOrFail($id);
+        $competition = Competition::with(['details.coach', 'details.venueRelation'])->findOrFail($id);
         $genzForFilter = $competition->genz_key;
         if (empty($genzForFilter)) {
             $genzForFilter = strtolower(str_replace([' ', '_', '-'], '', (string) $competition->genz));
@@ -127,12 +191,24 @@ class CompetitionController extends Controller
             }
         }
 
+        $authUser = Auth::user();
+        $latestAssessment = $authUser?->physical_assessment()
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->first();
+        $fitnessLevel = $this->normalizeFitnessLevel($latestAssessment?->exercise_type);
+        $gender = $this->normalizeGender($authUser?->gender ?: $latestAssessment?->gender);
+
         // Load exercises with their sets
         $exercises = $competition->exercises()
-            ->with(['sets' => function ($setQuery) use ($genzForFilter) {
-                $setQuery->select('sets.id', 'sets.name', 'sets.genz');
+            ->with(['sets' => function ($setQuery) use ($genzForFilter, $fitnessLevel, $gender) {
+                $setQuery->select('sets.id', 'sets.name', 'sets.genz', 'sets.fitness_level', 'sets.gender');
                 if (!empty($genzForFilter)) {
                     $setQuery->where('sets.genz', $genzForFilter);
+                }
+                if (!empty($fitnessLevel) && !empty($gender)) {
+                    $setQuery->where('sets.fitness_level', $fitnessLevel)
+                        ->where('sets.gender', $gender);
                 }
             }])
             ->where(function ($query) use ($genzForFilter) {
@@ -143,7 +219,20 @@ class CompetitionController extends Controller
 
                 $query->where('genz', 'both');
             })
-            ->get();
+            ->when(!empty($fitnessLevel) && !empty($gender), function ($query) use ($genzForFilter, $fitnessLevel, $gender) {
+                $query->whereHas('sets', function ($setQuery) use ($genzForFilter, $fitnessLevel, $gender) {
+                    if (!empty($genzForFilter)) {
+                        $setQuery->where('sets.genz', $genzForFilter);
+                    }
+                    $setQuery->where('sets.fitness_level', $fitnessLevel)
+                        ->where('sets.gender', $gender);
+                });
+            })
+            ->get()
+            ->filter(function ($exercise) {
+                return $exercise->sets->isNotEmpty();
+            })
+            ->values();
 
         $competitionDetailIds = CompetitionDetail::where('competition_id', $competition->id)
             ->pluck('id');
@@ -167,8 +256,8 @@ class CompetitionController extends Controller
             ->whereIn('competition_result_id', $competitionResultIds)
             ->get();
 
-        // âœ… Map results grouped by set
-        $results = $competitionUserTotals->map(function ($total) use ($exercises, $competitionResults) {
+        // Ã¢Å“â€¦ Map results grouped by set
+        $results = $competitionUserTotals->map(function ($total) use ($exercises, $competitionResults, $genzForFilter, $fitnessLevel, $gender) {
             $userResults = $competitionResults[$total->competition_user_id] ?? collect();
 
             // First, build an array where each set has its exercises
@@ -181,6 +270,11 @@ class CompetitionController extends Controller
                 foreach ($exercise->sets as $set) {
                     if (!empty($genzForFilter) && strtolower((string) $set->genz) !== strtolower((string) $genzForFilter)) {
                         continue;
+                    }
+                    if (!empty($fitnessLevel) && !empty($gender)) {
+                        if ((string) $set->fitness_level !== (string) $fitnessLevel || (string) $set->gender !== (string) $gender) {
+                            continue;
+                        }
                     }
 
                     if (!$setsData->has($set->id)) {
@@ -212,7 +306,13 @@ class CompetitionController extends Controller
 
         $response = [
             'competition'        => $competition,
+            'competition_details'=> $competition->details ?? collect(),
             'exercises'          => $exercises,
+            'criteria'           => [
+                'genz' => $genzForFilter,
+                'fitness_level' => $fitnessLevel,
+                'gender' => $gender,
+            ],
             'results'            => $results,
             'challenging_videos' => $competitionResultVideos->map(function ($video) {
                 return [
@@ -225,6 +325,27 @@ class CompetitionController extends Controller
         ];
 
         return $this->success($response, 'Competition details fetched successfully', 200);
+    }
+
+    private function normalizeGender(?string $gender): ?string
+    {
+        $value = strtolower(trim((string) $gender));
+        return match ($value) {
+            'male' => 'Male',
+            'female' => 'Female',
+            'other' => 'Other',
+            default => null,
+        };
+    }
+
+    private function normalizeFitnessLevel(?string $value): ?string
+    {
+        $normalized = strtolower(trim((string) $value));
+        return match ($normalized) {
+            'expert' => 'Expert',
+            'immature' => 'Immature',
+            default => null,
+        };
     }
 
     public function getCompetitionDetail($id)
@@ -241,24 +362,70 @@ class CompetitionController extends Controller
     }
 
 
+    // public function acceptOrReject(Request $request, $id)
+    // {
+    //     $request->validate([
+    //         'status' => 'required|in:accepted,rejected',
+    //     ]);
+
+    //     $competition = Competition::where('status', 'active')->findOrFail($id);
+    //     $userId = Auth::id();
+
+    //     $competitionUser = CompetitionUser::query()
+    //         ->where('user_id', $userId)
+    //         ->where(function ($query) use ($competition) {
+    //             $query->where('competition_id', $competition->id)
+    //                 ->orWhereIn('competition_detail_id', function ($subQuery) use ($competition) {
+    //                     $subQuery->select('id')
+    //                         ->from('competition_details')
+    //                         ->where('competition_id', $competition->id);
+    //                 });
+    //         })
+    //         ->first();
+
+    //     if ($competitionUser) {
+    //         $competitionUser->status = $request->status;
+    //         $competitionUser->competition_id = $competition->id;
+    //         $competitionUser->save();
+    //     } else {
+    //         $competitionUser = CompetitionUser::create([
+    //             'user_id' => $userId,
+    //             'competition_id' => $competition->id,
+    //             'competition_detail_id' => null,
+    //             'status' => $request->status,
+    //         ]);
+    //     }
+
+    //     if ($competitionUser) {
+    //         return $this->success($competitionUser, 'Competition status updated successfully', 200);
+    //     }
+
+    //     return $this->error('Competition not found', [], 404);
+    // }
+
     public function acceptOrReject(Request $request, $id)
     {
+        $request->validate([
+            'status' => 'required|in:accepted,rejected',
+        ]);
+
+        $competition = Competition::where('status', 'active')->findOrFail($id);
+        $userId = Auth::id();
+
         $competitionUser = CompetitionUser::updateOrCreate(
             [
-                'user_id' => Auth::id(),
-                'competition_detail_id' => $id,
+                'competition_id' => $competition->id,
+                'user_id' => $userId,
             ],
             [
                 'status' => $request->status,
+                'competition_detail_id' => null,
             ]
         );
 
-        if ($competitionUser) {
-            return $this->success($competitionUser, 'Competition status updated successfully', 200);
-        }
-
-        return $this->error('Competition not found', [], 404);
+        return $this->success($competitionUser, 'Competition status updated successfully', 200);
     }
+
 
 
     public function getResult()
@@ -407,8 +574,8 @@ class CompetitionController extends Controller
                             'status' => $appel->status,
                             'created_at' => $appel->created_at,
                             'updated_at' => $appel->updated_at,
-                            'competition_name' => $competition->name ?? null, // 👈 Competition name
-                            'competition_image' => $detail->image ?? null,     // 👈 Image from detail
+                            'competition_name' => $competition->name ?? null, // ðŸ‘ˆ Competition name
+                            'competition_image' => $detail->image ?? null,     // ðŸ‘ˆ Image from detail
                         ];
                     });
             })

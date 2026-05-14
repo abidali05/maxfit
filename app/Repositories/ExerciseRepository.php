@@ -9,7 +9,7 @@ use App\Repositories\Contracts\ExerciseRepositoryInterface;
 class ExerciseRepository implements ExerciseRepositoryInterface
 {
     public function get_exercises() {
-        return Exercise::get();
+        return Exercise::orderBy('id', 'desc')->get();
     }
 
     public function get_exercise_caetegories() {

@@ -190,6 +190,7 @@ class CompetitionController extends Controller
             'genz' => 'required|in:motherfits,fatherfits',
             'country' => 'required|exists:countries,id',
             'description' => 'nullable|string',
+            'last_date' => 'nullable|date',
             'org_type' => 'nullable|array',
             'org_type.*' => 'required|exists:organisation_types,id',
             'org' => 'nullable|array',
@@ -200,28 +201,31 @@ class CompetitionController extends Controller
             'youtube_links.*' => 'nullable|url',
             'has_entry_fee' => 'required|boolean',
             'entry_fee' => 'nullable|numeric|min:0|required_if:has_entry_fee,1',
-            'coach_id' => 'required|array|min:1',
-            'coach_id.*' => 'required|exists:coaches,id',
-            'city_id' => 'required|array|min:1',
-            'city_id.*' => 'required|exists:cities,id',
-            'venue_id' => 'required|array|min:1',
-            'venue_id.*' => 'required|exists:venues,id',
-            'start_date' => 'required|array|min:1',
-            'start_date.*' => 'required|date',
-            'end_date' => 'required|array|min:1',
-            'end_date.*' => 'required|date',
-            'start_time' => 'required|array|min:1',
-            'start_time.*' => 'required|date_format:H:i',
-            'end_time' => 'required|array|min:1',
-            'end_time.*' => 'required|date_format:H:i',
-            'image' => 'nullable|array',
-            'image.*' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
         ];
 
         if ($isUpdate) {
             $rules['status'] = 'nullable|in:active,inactive';
             $rules['detail_ids'] = 'nullable|array';
             $rules['detail_ids.*'] = 'nullable|integer|exists:competition_details,id';
+            $rules['coach_id'] = 'required|array|min:1';
+            $rules['coach_id.*'] = 'required|exists:coaches,id';
+            $rules['city_id'] = 'required|array|min:1';
+            $rules['city_id.*'] = 'required|exists:cities,id';
+            $rules['venue_id'] = 'required|array|min:1';
+            $rules['venue_id.*'] = 'required|exists:venues,id';
+            $rules['start_date'] = 'required|array|min:1';
+            $rules['start_date.*'] = 'required|date';
+            $rules['end_date'] = 'required|array|min:1';
+            $rules['end_date.*'] = 'required|date';
+            $rules['start_time'] = 'required|array|min:1';
+            $rules['start_time.*'] = 'required|date_format:H:i';
+            $rules['end_time'] = 'required|array|min:1';
+            $rules['end_time.*'] = 'required|date_format:H:i';
+            $rules['image'] = 'nullable|array';
+            $rules['image.*'] = 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048';
+            $rules['selected_user_ids'] = 'nullable|array';
+            $rules['selected_user_ids.*'] = 'nullable|array';
+            $rules['selected_user_ids.*.*'] = 'nullable|integer|exists:users,id';
         }
 
         $validated = $request->validate($rules);
@@ -237,42 +241,64 @@ class CompetitionController extends Controller
             ]);
         }
 
-        if (count($validated['coach_id']) !== count($validated['city_id']) ||
-            count($validated['coach_id']) !== count($validated['venue_id']) ||
-            count($validated['coach_id']) !== count($validated['start_date']) ||
-            count($validated['coach_id']) !== count($validated['end_date']) ||
-            count($validated['coach_id']) !== count($validated['start_time']) ||
-            count($validated['coach_id']) !== count($validated['end_time'])) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
-                'coach_id' => ['Each competition detail field must have matching rows.'],
-            ]);
-        }
-
-        foreach ($validated['start_date'] as $index => $startDate) {
-            if (!empty($validated['end_date'][$index]) && strtotime($validated['end_date'][$index]) < strtotime($startDate)) {
+        if ($isUpdate) {
+            if (count($validated['coach_id']) !== count($validated['city_id']) ||
+                count($validated['coach_id']) !== count($validated['venue_id']) ||
+                count($validated['coach_id']) !== count($validated['start_date']) ||
+                count($validated['coach_id']) !== count($validated['end_date']) ||
+                count($validated['coach_id']) !== count($validated['start_time']) ||
+                count($validated['coach_id']) !== count($validated['end_time'])) {
                 throw \Illuminate\Validation\ValidationException::withMessages([
-                    'end_date.' . $index => ['End date must be on or after start date.'],
+                    'coach_id' => ['Each competition detail field must have matching rows.'],
                 ]);
             }
 
-            if (
-                !empty($validated['start_time'][$index]) &&
-                !empty($validated['end_time'][$index]) &&
-                $validated['start_date'][$index] === ($validated['end_date'][$index] ?? null) &&
-                strtotime($validated['end_time'][$index]) <= strtotime($validated['start_time'][$index])
-            ) {
-                throw \Illuminate\Validation\ValidationException::withMessages([
-                    'end_time.' . $index => ['End time must be after start time.'],
-                ]);
-            }
+            $routeCompetition = $request->route('competition');
+            $competitionId = $routeCompetition instanceof Competition ? (int) $routeCompetition->id : (int) $routeCompetition;
 
-            $venueId = $validated['venue_id'][$index] ?? null;
-            if (!empty($venueId)) {
-                $venue = Venue::find($venueId);
-                if ($venue && (string) $venue->city_id !== (string) ($validated['city_id'][$index] ?? '')) {
+            foreach ($validated['start_date'] as $index => $startDate) {
+                if (!empty($validated['end_date'][$index]) && strtotime($validated['end_date'][$index]) < strtotime($startDate)) {
                     throw \Illuminate\Validation\ValidationException::withMessages([
-                        'venue_id.' . $index => ['Selected venue must belong to the selected city.'],
+                        'end_date.' . $index => ['End date must be on or after start date.'],
                     ]);
+                }
+
+                if (
+                    !empty($validated['start_time'][$index]) &&
+                    !empty($validated['end_time'][$index]) &&
+                    $validated['start_date'][$index] === ($validated['end_date'][$index] ?? null) &&
+                    strtotime($validated['end_time'][$index]) <= strtotime($validated['start_time'][$index])
+                ) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'end_time.' . $index => ['End time must be after start time.'],
+                    ]);
+                }
+
+                $venueId = $validated['venue_id'][$index] ?? null;
+                if (!empty($venueId)) {
+                    $venue = Venue::find($venueId);
+                    if ($venue && (string) $venue->city_id !== (string) ($validated['city_id'][$index] ?? '')) {
+                        throw \Illuminate\Validation\ValidationException::withMessages([
+                            'venue_id.' . $index => ['Selected venue must belong to the selected city.'],
+                        ]);
+                    }
+                }
+
+                $selectedUsersForDetail = collect($validated['selected_user_ids'][$index] ?? [])
+                    ->filter()
+                    ->map(fn ($value) => (int) $value)
+                    ->unique()
+                    ->values()
+                    ->all();
+
+                if ($selectedUsersForDetail !== []) {
+                    $allowedUserIds = $this->getAcceptedCompetitionUserIdsByCity($competitionId, (int) $validated['city_id'][$index]);
+                    $invalid = array_diff($selectedUsersForDetail, $allowedUserIds);
+                    if ($invalid !== []) {
+                        throw \Illuminate\Validation\ValidationException::withMessages([
+                            "selected_user_ids.$index" => ['One or more selected users are invalid for the chosen city or are not accepted in this competition.'],
+                        ]);
+                    }
                 }
             }
         }
@@ -372,10 +398,63 @@ class CompetitionController extends Controller
                     Storage::disk('public')->delete($existing->image);
                 }
                 CompetitionDetail::whereKey($validated['detail_ids'][$index])->update($detailData);
+                $detail = CompetitionDetail::find($validated['detail_ids'][$index]);
             } else {
-                CompetitionDetail::create($detailData);
+                $detail = CompetitionDetail::create($detailData);
+            }
+
+            if ($detail) {
+                $selectedUserIds = collect($validated['selected_user_ids'][$index] ?? [])
+                    ->filter()
+                    ->map(fn ($value) => (int) $value)
+                    ->unique()
+                    ->values()
+                    ->all();
+                $allowedUserIds = $this->getAcceptedCompetitionUserIdsByCity($competition->id, (int) ($validated['city_id'][$index] ?? 0));
+                $finalUserIds = array_values(array_intersect($selectedUserIds, $allowedUserIds));
+                $detail->selectedUsers()->sync($finalUserIds);
             }
         }
+    }
+
+    private function getAcceptedCompetitionUserIdsByCity(int $competitionId, int $cityId): array
+    {
+        if ($competitionId <= 0 || $cityId <= 0) {
+            return [];
+        }
+
+        return User::query()
+            ->where('city', $cityId)
+            ->whereIn('id', function ($query) use ($competitionId) {
+                $query->select('competition_users.user_id')
+                    ->from('competition_users')
+                    ->where('competition_users.competition_id', $competitionId)
+                    ->where('competition_users.status', 'accepted');
+            })
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+    }
+
+    public function getAcceptedUsersByCity(Competition $competition, $cityId)
+    {
+        $cityId = (int) $cityId;
+        if ($cityId <= 0) {
+            return response()->json([]);
+        }
+
+        $users = User::query()
+            ->where('city', $cityId)
+            ->whereIn('id', function ($query) use ($competition) {
+                $query->select('competition_users.user_id')
+                    ->from('competition_users')
+                    ->where('competition_users.competition_id', $competition->id)
+                    ->where('competition_users.status', 'accepted');
+            })
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        return response()->json($users);
     }
 
 
@@ -391,6 +470,7 @@ class CompetitionController extends Controller
                 'genz' => $validated['genz'],
                 'country' => $validated['country'],
                 'description' => $validated['description'] ?? null,
+                'last_date' => $validated['last_date'] ?? null,
                 'time_allowed' => $validated['time_allowed'],
                 'org_type' => !empty($validated['org_type']) ? $validated['org_type'][0] : null,
                 'org' => !empty($validated['org']) ? $validated['org'][0] : null,
@@ -409,14 +489,13 @@ class CompetitionController extends Controller
 
             $this->syncCompetitionOrganisations($competition, $validated);
             $competition->save();
-            $this->syncCompetitionDetails($competition, $request, $validated);
             $this->syncCompetitionVideos($competition, $request, $validated);
 
             $exerciseIds = Exercise::whereIn('genz', [$validated['genz'], 'both'])->pluck('id');
             $competition->exercises()->sync($exerciseIds);
 
             DB::commit();
-            Toastr::success('Competition and details created successfully', 'Success');
+            Toastr::success('Competition created successfully', 'Success');
             return redirect()->route('competitions.index');
         } catch (\Exception $e) {
             DB::rollBack();
@@ -432,6 +511,7 @@ class CompetitionController extends Controller
             $with = [
                 'details.cityRelation',
                 'details.venueRelation',
+                'details.selectedUsers',
                 'videos',
                 'organizationTypes',
                 'exercises',
@@ -567,6 +647,7 @@ class CompetitionController extends Controller
                 'genz' => $validated['genz'],
                 'country' => $validated['country'],
                 'description' => $validated['description'] ?? null,
+                'last_date' => $validated['last_date'] ?? null,
                 'time_allowed' => $validated['time_allowed'],
                 'org_type' => !empty($validated['org_type']) ? $validated['org_type'][0] : null,
                 'org' => !empty($validated['org']) ? $validated['org'][0] : null,

@@ -53,16 +53,36 @@
                                 </select>
                                 <div class="text-danger error-message" id="exercise_type-error"></div>
                             </div>
+                            <div class="col-md-6">
+                                <label for="fitness_level" class="form-label">Fitness Level</label>
+                                <select name="fitness_level" id="fitness_level" class="form-select" required>
+                                    <option value="" disabled>Select Fitness Level</option>
+                                    <option value="Expert" {{ old('fitness_level', $exercise->fitness_level) == 'Expert' ? 'selected' : '' }}>Expert</option>
+                                    <option value="Amateur" {{ old('fitness_level', $exercise->fitness_level) == 'Amateur' ? 'selected' : '' }}>Amateur</option>
+                                    <option value="both" {{ old('fitness_level', $exercise->fitness_level) == 'both' ? 'selected' : '' }}>Both</option>
+                                </select>
+                                <div class="text-danger error-message" id="fitness_level-error"></div>
+                            </div>
 
                             <div class="col-md-6">
                                 <label class="form-label">Genz</label>
                                 <select name="genz" class="form-select" required>
                                     <option value="" disabled {{ old('genz', $exercise->genz) ? '' : 'selected' }}>Select Genz</option>
-                                    <option value="both" {{ old('genz', $exercise->genz) == 'both' ? 'selected' : '' }}>Both</option>
                                     <option value="motherfits" {{ old('genz', $exercise->genz) == 'motherfits' ? 'selected' : '' }}>Mother Fit</option>
                                     <option value="fatherfits" {{ old('genz', $exercise->genz) == 'fatherfits' ? 'selected' : '' }}>Father Fit</option>
+                                    <option value="both" {{ old('genz', $exercise->genz) == 'both' ? 'selected' : '' }}>Both</option>
                                 </select>
                                 <div class="text-danger error-message" id="genz-error"></div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Gender</label>
+                                <select name="gender" class="form-select" required>
+                                    <option value="" disabled>Select Gender</option>
+                                    <option value="Male" {{ old('gender', $exercise->gender) == 'Male' ? 'selected' : '' }}>Male</option>
+                                    <option value="Female" {{ old('gender', $exercise->gender) == 'Female' ? 'selected' : '' }}>Female</option>
+                                    <option value="both" {{ old('gender', $exercise->gender) == 'both' ? 'selected' : '' }}>Both</option>
+                                </select>
+                                <div class="text-danger error-message" id="gender-error"></div>
                             </div>
 
                             <div class="col-md-12">
@@ -146,6 +166,18 @@
                 const genz = document.querySelector('select[name="genz"]');
                 if (!genz.value) {
                     document.getElementById('genz-error').textContent = 'Genz is required.';
+                    isValid = false;
+                }
+
+                const fitnessLevel = document.querySelector('select[name="fitness_level"]');
+                if (!fitnessLevel.value) {
+                    document.getElementById('fitness_level-error').textContent = 'Fitness level is required.';
+                    isValid = false;
+                }
+
+                const gender = document.querySelector('select[name="gender"]');
+                if (!gender.value) {
+                    document.getElementById('gender-error').textContent = 'Gender is required.';
                     isValid = false;
                 }
 

@@ -54,6 +54,8 @@ class ExerciseController extends Controller
                 Rule::exists('exercise_categories', 'id'),
             ],
             'exercise_type' => 'required|string|in:Per Second,Per Count',
+            'fitness_level' => 'required|string|in:Expert,Amateur,both',
+            'gender' => 'required|string|in:Male,Female,both',
             'description' => 'nullable|string',
             'image' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
             'youtube_link' => 'nullable|url', // Validate as video_file from frontend
@@ -126,6 +128,8 @@ class ExerciseController extends Controller
                 'genz' => 'required|string|max:255',
                 'exercise_category_id' => 'required|string',
                 'exercise_type' => 'required|string|in:Per Second,Per Count',
+                'fitness_level' => 'required|string|in:Expert,Amateur,both',
+                'gender' => 'required|string|in:Male,Female,both',
                 'description' => 'nullable|string',
                 'image' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
                 'youtube_link' => 'nullable|url'

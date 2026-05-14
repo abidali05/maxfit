@@ -12,7 +12,7 @@
                     <form action="{{ route('sets.store') }}" method="POST">
                         @csrf
                         <div class="row">
-                            <div class="col-md-6">
+                            <div class="col-md-4">
                                 <div class="mb-3">
                                     <label for="name" class="form-label">Name</label>
                                     <input type="text" class="form-control" id="name" name="name" value="{{ old('name') }}" required>
@@ -21,15 +21,44 @@
                                     @enderror
                                 </div>
                             </div>
-                            <div class="col-md-6">
+                            <div class="col-md-4">
                                 <div class="mb-3">
                                     <label for="genz" class="form-label">Genz</label>
                                     <select class="form-control" id="genz" name="genz" required>
                                         <option value="">Select Genz</option>
                                         <option value="fatherfits" {{ old('genz') == 'fatherfits' ? 'selected' : '' }}>Father Fits</option>
                                         <option value="motherfits" {{ old('genz') == 'motherfits' ? 'selected' : '' }}>Mother Fits</option>
+                                        <option value="both" {{ old('genz') == 'both' ? 'selected' : '' }}>Both</option>
                                     </select>
                                     @error('genz')
+                                        <div class="text-danger">{{ $message }}</div>
+                                    @enderror
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="fitness_level" class="form-label">Fitness Level</label>
+                                    <select class="form-control" id="fitness_level" name="fitness_level" required>
+                                        <option value="">Select Fitness Level</option>
+                                        <option value="Expert" {{ old('fitness_level') == 'Expert' ? 'selected' : '' }}>Expert</option>
+                                        <option value="Amateur" {{ old('fitness_level') == 'Amateur' ? 'selected' : '' }}>Amateur</option>
+                                        <option value="both" {{ old('fitness_level') == 'both' ? 'selected' : '' }}>Both</option>
+                                    </select>
+                                    @error('fitness_level')
+                                        <div class="text-danger">{{ $message }}</div>
+                                    @enderror
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="gender" class="form-label">Gender</label>
+                                    <select class="form-control" id="gender" name="gender" required>
+                                        <option value="">Select Gender</option>
+                                        <option value="Male" {{ old('gender') == 'Male' ? 'selected' : '' }}>Male</option>
+                                        <option value="Female" {{ old('gender') == 'Female' ? 'selected' : '' }}>Female</option>
+                                        <option value="both" {{ old('gender') == 'both' ? 'selected' : '' }}>Both</option>
+                                    </select>
+                                    @error('gender')
                                         <div class="text-danger">{{ $message }}</div>
                                     @enderror
                                 </div>
@@ -38,7 +67,7 @@
                         <div class="mb-3">
                             <label class="form-label">Exercises (Drag to reorder)</label>
                             <div id="exercises-container" class="border p-3 rounded">
-                                <div class="text-muted">Select Genz first to load exercises</div>
+                                <div class="text-muted">Select Genz, Exercise Type and Gender to load exercises.</div>
                             </div>
                             <div id="selected-exercises" class="mt-3">
                                 <h6>Selected Exercises (in order):</h6>
@@ -60,22 +89,31 @@
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
     <script>
         let selectedExercises = [];
-        
-        document.getElementById('genz').addEventListener('change', function() {
-            const genz = this.value;
+
+        function selectedCriteria() {
+            return {
+                genz: document.getElementById('genz').value,
+                fitness_level: document.getElementById('fitness_level').value,
+                gender: document.getElementById('gender').value,
+            };
+        }
+
+        function loadExercisesByCriteria() {
+            const criteria = selectedCriteria();
             const exercisesContainer = document.getElementById('exercises-container');
             selectedExercises = [];
             updateSelectedExercises();
 
-            if (genz) {
-                fetch(`/set/exercises-by-genz?genz=${genz}`)
+            if (criteria.genz && criteria.fitness_level && criteria.gender) {
+                const params = new URLSearchParams(criteria);
+                fetch(`/sets/exercises-by-criteria?${params.toString()}`)
                     .then(response => response.json())
                     .then(data => {
                         exercisesContainer.innerHTML = '';
                         if (data.length === 0) {
-                            exercisesContainer.innerHTML = '<div class="text-muted">No exercises found for this genz.</div>';
-                            return;
-                        }
+                                exercisesContainer.innerHTML = '<div class="text-muted">No exercises found for selected criteria.</div>';
+                                return;
+                            }
                         data.forEach(exercise => {
                             const div = document.createElement('div');
                             div.className = 'form-check mb-2';
@@ -109,14 +147,18 @@
                         exercisesContainer.innerHTML = '<div class="text-danger">Error loading exercises.</div>';
                     });
             } else {
-                exercisesContainer.innerHTML = '<div class="text-muted">Select Genz first to load exercises</div>';
+                exercisesContainer.innerHTML = '<div class="text-muted">Select Genz, Exercise Type and Gender to load exercises.</div>';
             }
+        }
+
+        ['genz', 'fitness_level', 'gender'].forEach((id) => {
+            document.getElementById(id).addEventListener('change', loadExercisesByCriteria);
         });
-        
+
         function updateSelectedExercises() {
             const container = document.getElementById('sortable-exercises');
             container.innerHTML = '';
-            
+
             selectedExercises.forEach((exercise, index) => {
                 const item = document.createElement('div');
                 item.className = 'list-group-item d-flex justify-content-between align-items-center';
@@ -129,7 +171,7 @@
                 `;
                 container.appendChild(item);
             });
-            
+
             // Initialize sortable
             if (selectedExercises.length > 0) {
                 new Sortable(container, {
@@ -140,19 +182,19 @@
                 });
             }
         }
-        
+
         function updateSequenceInputs() {
             const items = document.querySelectorAll('#sortable-exercises .list-group-item');
             const exerciseIds = [];
             const sequences = [];
-            
+
             items.forEach((item, index) => {
                 const exerciseId = item.dataset.exerciseId;
                 exerciseIds.push(exerciseId);
                 sequences.push(index + 1);
                 item.querySelector('span strong').textContent = `${index + 1}.`;
             });
-            
+
             // Update hidden inputs
             const container = document.getElementById('sortable-exercises');
             container.querySelectorAll('input[name="exercise_ids[]"]').forEach((input, index) => {

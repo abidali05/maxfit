@@ -62,17 +62,43 @@
                                     <span class="text-danger">{{ $message }}</span>
                                 @enderror
                             </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Fitness Level</label>
+                                <select name="fitness_level" class="form-select" required>
+                                    <option value="" disabled selected>Select Fitness Level</option>
+                                    <option value="Expert" {{ old('fitness_level') == 'Expert' ? 'selected' : '' }}>Expert</option>
+                                    <option value="Amateur" {{ old('fitness_level') == 'Amateur' ? 'selected' : '' }}>Amateur</option>
+                                    <option value="both" {{ old('fitness_level') == 'both' ? 'selected' : '' }}>Both</option>
+                                </select>
+                                <div class="text-danger error-message" id="fitness_level-error"></div>
+                                @error('fitness_level')
+                                    <span class="text-danger">{{ $message }}</span>
+                                @enderror
+                            </div>
 
                             <div class="col-md-6">
                                 <label class="form-label">Genz</label>
                                 <select name="genz" class="form-select" required>
                                     <option value="" disabled selected>Select Genz</option>
-                                    <option value="both">Both</option>
                                     <option value="motherfits">Mother Fit</option>
                                     <option value="fatherfits">Father Fit</option>
+                                    <option value="both">Both</option>
                                 </select>
                                 <div class="text-danger error-message" id="genz-error"></div>
                                 @error('genz')
+                                    <span class="text-danger">{{ $message }}</span>
+                                @enderror
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Gender</label>
+                                <select name="gender" class="form-select" required>
+                                    <option value="" disabled selected>Select Gender</option>
+                                    <option value="Male" {{ old('gender') == 'Male' ? 'selected' : '' }}>Male</option>
+                                    <option value="Female" {{ old('gender') == 'Female' ? 'selected' : '' }}>Female</option>
+                                    <option value="both" {{ old('gender') == 'both' ? 'selected' : '' }}>Both</option>
+                                </select>
+                                <div class="text-danger error-message" id="gender-error"></div>
+                                @error('gender')
                                     <span class="text-danger">{{ $message }}</span>
                                 @enderror
                             </div>
@@ -103,9 +129,9 @@
                                     </div>
                                 </div>
                                 <div class="text-danger error-message" id="video_file-error"></div>
-                                @error('video_file')
+                                @error('youtube_link')
                                     <span class="text-danger d-block">{{ $message }}</span>
-                                @endif
+                                @enderror
                             </div>
                         </div>
 
@@ -159,6 +185,18 @@
             const genz = document.querySelector('select[name="genz"]');
             if (!genz.value) {
                 document.getElementById('genz-error').textContent = 'Genz is required.';
+                isValid = false;
+            }
+
+            const fitnessLevel = document.querySelector('select[name="fitness_level"]');
+            if (!fitnessLevel.value) {
+                document.getElementById('fitness_level-error').textContent = 'Fitness level is required.';
+                isValid = false;
+            }
+
+            const gender = document.querySelector('select[name="gender"]');
+            if (!gender.value) {
+                document.getElementById('gender-error').textContent = 'Gender is required.';
                 isValid = false;
             }
 

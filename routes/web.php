@@ -62,6 +62,7 @@ Route::middleware('auth')->group(function () {
     Route::get('competitions/organizations-by-types', [CompetitionController::class, 'getOrganizationsByTypes'])->name('competitions.organizations-by-types');
     Route::get('competitions/countries-search', [CompetitionController::class, 'searchCountries'])->name('competitions.countries-search');
     Route::get('competitions/venues-by-city/{cityId}', [CompetitionController::class, 'getVenuesByCity'])->name('competitions.venues-by-city');
+    Route::get('competitions/{competition}/accepted-users-by-city/{cityId}', [CompetitionController::class, 'getAcceptedUsersByCity'])->name('competitions.accepted-users-by-city');
     Route::resource('competitions', CompetitionController::class);
     Route::get('competition-details/{id}/users', [CompetitionUserController::class, 'index'])->name('competition-users.index');
     Route::get('/competition-users/{id}/edit', [CompetitionUserController::class, 'edit'])->name('competition-users.edit');
@@ -77,8 +78,8 @@ Route::middleware('auth')->group(function () {
     Route::delete('destroy-appeal/{id}', [CompetitionController::class, 'destroyAppeal'])->name('competitions.destroyAppeal');
     Route::put('update-appeal-status/{id}', [CompetitionController::class, 'updateAppealStatus'])->name('competitions.updateAppealStatus');
     Route::resource('results', ResultController::class);
-    Route::resource('sets', SetsController::class);
-    Route::get('/set/exercises-by-genz', [SetsController::class, 'getExercisesByGenz'])->name('sets.exercises-by-genz');
+    Route::get('/sets/exercises-by-criteria', [SetsController::class, 'getExercisesByCriteria'])->name('sets.exercises-by-criteria');
+    Route::resource('sets', SetsController::class)->except(['show']);
     Route::resource('plans', PlansController::class);
     Route::resource('rulesof-counting', RulesOfCountingController::class);
     Route::resource('coaches', CoachController::class);

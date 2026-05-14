@@ -48,8 +48,19 @@ class ExercisesController extends Controller
             $allowedGenz = ['fatherfits', 'both'];
         }
 
+        $userAssessments = \DB::table('daily_assessments')
+            ->where('user_id', $user->id)
+            ->pluck('count', 'exercise_id');
+
         $sets = Set::with('exercises')->whereIn('genz', $allowedGenz)
-            ->get();
+            ->get()
+            ->map(function ($set) use ($userAssessments) {
+                $set->exercises->map(function ($exercise) use ($userAssessments) {
+                    $exercise->user_value = $userAssessments->get($exercise->id);
+                    return $exercise;
+                });
+                return $set;
+            });
 
         return $this->success($sets, 'Sets fetched successfully', 200);
     }

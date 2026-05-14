@@ -57,9 +57,19 @@ class ProcessCompetitionResults implements ShouldQueue
                 ]
             );
 
+            // Mark the current competition_user row as completed.
+            // Do not upsert by user_id here, because $user->id is competition_users.id.
+            $user->update([
+                'status' => 'completed',
+            ]);
+
             // Update top 10 users with Novice to Expert
-            if ($rank <= 10 && $user->user && $user->user->physicalAssessment && $user->user->physicalAssessment->exercise_type === 'Novice') {
-                $user->user->physicalAssessment->update(['exercise_type' => 'Expert']);
+            $latestAssessment = $user->user?->physical_assessment
+                ? $user->user->physical_assessment->sortByDesc('created_at')->first()
+                : null;
+
+            if ($rank <= 10 && $latestAssessment && $latestAssessment->exercise_type === 'Novice') {
+                $latestAssessment->update(['exercise_type' => 'Expert']);
                 Log::info("Updated user to Expert", ['user_id' => $user->user->id]);
             }
 

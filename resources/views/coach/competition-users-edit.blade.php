@@ -12,30 +12,50 @@
                         @csrf
                         @method('PUT')
 
-                        @foreach ($exercises as $exercise)
-                            <div class="mb-3 border p-3 rounded text-start">
-                                <h6 class="mb-2">{{ $exercise->name }}</h6>
-                                <label for="score_{{ $exercise->id }}" class="form-label">Score</label>
-                                <input type="number" step="0.01" name="scores[{{ $exercise->id }}]" class="form-control"
-                                    value="{{ $results[$exercise->id]->score ?? '' }}" required min="0">
+                        @forelse ($sets as $set)
+                            @php
+                                $setExercises = $set->setExercises->filter(fn($se) => !empty($se->exercise));
+                            @endphp
 
-                                {{-- YouTube Link (single input; preserves extra existing links in hidden fields) --}}
-                                <div class="mt-3">
-                                    <label class="form-label">YouTube Video Link</label>
+                            @if ($setExercises->isEmpty())
+                                @continue
+                            @endif
+
+                            <div class="mb-4 text-start">
+                                <h5 class="mb-3">{{ $set->name }}</h5>
+
+                                @foreach ($setExercises as $setExercise)
                                     @php
-                                        $exerciseLinks = collect($results[$exercise->id]->videos ?? []);
+                                        $exercise = $setExercise->exercise;
+                                        $result = $results->get($exercise->id);
+                                        $exerciseLinks = collect($result?->videos ?? []);
                                         $primaryLink = optional($exerciseLinks->first())->youtube_link;
                                     @endphp
-                                    <input type="url" class="form-control" name="youtube_links[{{ $exercise->id }}][]"
-                                        value="{{ $primaryLink ?? '' }}" placeholder="https://www.youtube.com/watch?v=...">
 
-                                    @foreach ($exerciseLinks->slice(1) as $video)
-                                        <input type="hidden" name="youtube_links[{{ $exercise->id }}][]"
-                                            value="{{ $video->youtube_link }}">
-                                    @endforeach
-                                </div>
+                                    <div class="mb-3 border p-3 rounded text-start">
+                                        <h6 class="mb-2">{{ $exercise->name }}</h6>
+                                        <label for="score_{{ $exercise->id }}" class="form-label">Score</label>
+                                        <input type="number" step="0.01" name="scores[{{ $exercise->id }}]"
+                                            class="form-control" value="{{ $result?->score ?? '' }}" required min="0">
+
+                                        {{-- YouTube Link (single input; preserves extra existing links in hidden fields) --}}
+                                        <div class="mt-3">
+                                            <label class="form-label">YouTube Video Link</label>
+                                            <input type="url" class="form-control" name="youtube_links[{{ $exercise->id }}][]"
+                                                value="{{ $primaryLink ?? '' }}"
+                                                placeholder="https://www.youtube.com/watch?v=...">
+
+                                            @foreach ($exerciseLinks->slice(1) as $video)
+                                                <input type="hidden" name="youtube_links[{{ $exercise->id }}][]"
+                                                    value="{{ $video->youtube_link }}">
+                                            @endforeach
+                                        </div>
+                                    </div>
+                                @endforeach
                             </div>
-                        @endforeach
+                        @empty
+                            <div class="text-start text-muted">No sets found for this competition.</div>
+                        @endforelse
 
                         <button type="submit" class="btn btn-success">Save Scores</button>
                     </form>

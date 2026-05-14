@@ -16,6 +16,8 @@
                                     <th scope="col">S.No</th>
                                     <th scope="col">Name</th>
                                     <th scope="col">Genz</th>
+                                    <th scope="col">Fitness Level</th>
+                                    <th scope="col">Gender</th>
                                     <th scope="col">Exercises</th>
                                     <th scope="col" class="text-end">Action</th>
                                 </tr>
@@ -26,6 +28,8 @@
                                     <td>{{ $index + 1 }}</td>
                                     <td>{{ $set->name }}</td>
                                     <td>{{ ucfirst($set->genz) }}</td>
+                                    <td>{{ $set->fitness_level ?? '-' }}</td>
+                                    <td>{{ $set->gender ?? '-' }}</td>
                                     <td>{{ $set->exercises->count() }} exercises</td>
                                     <td class="text-end">
                                         <a href="{{ route('sets.edit', $set->id) }}" class="btn btn-sm btn-warning">Edit</a>
