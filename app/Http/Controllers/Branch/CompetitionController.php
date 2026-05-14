@@ -13,6 +13,7 @@ use App\Models\CompetitionAppeal;
 use App\Models\CompetitionDetail;
 use App\Models\CompetitionResult;
 use App\Models\OrganisationTypes;
+use App\Models\Set;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
 use App\Models\CompetitionUserTotal;
@@ -235,32 +236,60 @@ class CompetitionController extends Controller
     {
         $competitionUser = CompetitionUser::with(['user', 'competitionDetail.competition'])->findOrFail($id);
 
-        // Get all exercises for this competition
         $competition = $competitionUser->competitionDetail->competition;
-        $exercises = $competition->exercises; // via competition_exercises
+        $genz = strtolower((string) $competition->getRawOriginal('genz'));
+
+        $sets = Set::query()
+            ->with(['setExercises.exercise'])
+            ->whereRaw('LOWER(genz) = ?', [$genz])
+            ->orderBy('id')
+            ->get();
 
         // Get existing scores
-        $results = CompetitionResult::where('competition_user_id', $competitionUser->id)->get()->keyBy('exercise_id');
+        $results = CompetitionResult::with('videos')
+            ->where('competition_user_id', $competitionUser->id)
+            ->get()
+            ->keyBy('exercise_id');
 
-        return view('branch.competition-users-edit', compact('competitionUser', 'exercises', 'results'));
+        return view('branch.competition-users-edit', compact('competitionUser', 'competition', 'sets', 'results'));
     }
 
     public function getCompetitionResultUpdate(Request $request, $id)
     {
         $competitionUser = CompetitionUser::findOrFail($id);
 
-        $scores = $request->input('scores'); // array: exercise_id => score
+        $validated = $request->validate([
+            'scores' => ['required', 'array'],
+            'scores.*' => ['required', 'numeric', 'min:0'],
+            'youtube_links' => ['nullable', 'array'],
+            'youtube_links.*' => ['nullable', 'array'],
+            'youtube_links.*.*' => ['nullable', 'url'],
+        ]);
+
+        $scores = $validated['scores']; // array: exercise_id => score
+        $youtubeLinks = $validated['youtube_links'] ?? []; // array: exercise_id => [links...]
 
         $totalScore = 0;
 
         foreach ($scores as $exerciseId => $score) {
-            CompetitionResult::updateOrCreate(
+            $result = CompetitionResult::updateOrCreate(
                 [
                     'competition_user_id' => $competitionUser->id,
                     'exercise_id' => $exerciseId
                 ],
                 ['score' => $score]
             );
+
+            if (array_key_exists($exerciseId, $youtubeLinks)) {
+                $result->videos()->delete(); // clear old
+                foreach ($youtubeLinks[$exerciseId] as $link) {
+                    if ($link) {
+                        $result->videos()->create([
+                            'youtube_link' => $link
+                        ]);
+                    }
+                }
+            }
 
             $totalScore += floatval($score);
         }
@@ -271,7 +300,7 @@ class CompetitionController extends Controller
             ['total_score' => $totalScore]
         );
 
-        return redirect()->back()->with('success', 'Scores updated!');
+        return redirect()->back()->with('success', 'Scores and videos updated!');
     }
 
     public function editCompetitionResultUpdate($id)

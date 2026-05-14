@@ -8,6 +8,9 @@ class Exercise extends Model
 {
     protected $guarded = [];
 
+    public const FITNESS_LEVELS = ['Expert', 'Immature'];
+    public const GENDERS = ['Male', 'Female', 'Other'];
+
     public function exercise_category()
     {
         return $this->belongsTo(ExerciseCategory::class);
@@ -40,8 +43,15 @@ class Exercise extends Model
     }
 
     public function setExercises()
-{
-    return $this->hasMany(SetExercise::class, 'exercise_id');
-}
+    {
+        return $this->hasMany(SetExercise::class, 'exercise_id');
+    }
 
+    public function scopeMatchingCriteria($query, string $genz, string $fitnessLevel, string $gender)
+    {
+        return $query
+            ->whereIn('genz', [$genz, 'both'])
+            ->where('fitness_level', $fitnessLevel)
+            ->where('gender', $gender);
+    }
 }

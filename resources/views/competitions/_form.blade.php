@@ -27,6 +27,7 @@
         orgUrl: @json(route('competitions.organizations-by-types')),
         countryUrl: @json(route('competitions.countries-search')),
         venueUrlBase: @json(url('competitions/venues-by-city')),
+        acceptedUsersByCityUrlBase: @json($isEdit ? url('competitions/' . $competition->id . '/accepted-users-by-city') : null),
     };
     window.competitionCoachOptions = @json($coaches->map(fn ($coach) => ['id' => $coach->id, 'name' => $coach->name])->values());
     window.competitionCityOptions = @json($cities->map(fn ($city) => ['id' => $city->id, 'name' => $city->name])->values());
@@ -103,6 +104,11 @@
                                 @error('time_allowed')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
                             </div>
                             <div class="col-md-6 col-xl-4">
+                                <label for="last_date">Last Date</label>
+                                <input type="date" class="form-control" name="last_date" id="last_date" value="{{ old('last_date', optional($competition->last_date)->format('Y-m-d')) }}">
+                                @error('last_date')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
+                            </div>
+                            <div class="col-md-6 col-xl-4">
                                 <label for="has_entry_fee">Entry Fee Required?</label>
                                 <select name="has_entry_fee" id="has_entry_fee" class="form-select">
                                     <option value="0" {{ old('has_entry_fee', $competition->has_entry_fee ?? 0) == 0 ? 'selected' : '' }}>No</option>
@@ -170,13 +176,14 @@
                             </div>
                         </div>
 
+                        @if ($isEdit)
                         <div class="app-table-card mt-4">
                             <div class="app-table-header d-flex flex-wrap align-items-center justify-content-between gap-3">
                                 <div>
                                     <p class="app-table-title mb-1">Competition Details</p>
                                     <div class="app-table-subtitle">Coach, city, venue, schedule and image per block.</div>
                                 </div>
-                                <button type="button" class="btn btn-primary btn-sm" id="add-competition">Add Another Competition</button>
+                                <button type="button" class="btn btn-primary btn-sm" id="add-competition">Add Detail Block</button>
                             </div>
                             <div class="app-table-body" id="competition-container">
                                 @for ($index = 0; $index < $detailCount; $index++)
@@ -191,6 +198,15 @@
                                         $detailEndTime = old("end_time.$index", $detail?->end_time ? \Carbon\Carbon::parse($detail->end_time)->format('H:i') : '');
                                         $detailId = old("detail_ids.$index", $detail?->id ?? '');
                                         $detailVenueName = $detail?->venueRelation?->name;
+                                        $detailSelectedUserIds = collect(old("selected_user_ids.$index", $detail?->resolved_selected_user_ids ?? []))
+                                            ->filter()
+                                            ->map(fn ($value) => (int) $value)
+                                            ->values()
+                                            ->all();
+                                        $detailSelectedUsers = \App\Models\User::query()
+                                            ->whereIn('id', $detailSelectedUserIds)
+                                            ->orderBy('name')
+                                            ->get(['id', 'name']);
                                     @endphp
                                     <div class="competition-field border rounded-4 p-3 mb-3" data-detail-index="{{ $index }}">
                                         <input type="hidden" name="detail_ids[]" value="{{ $detailId }}">
@@ -212,6 +228,16 @@
                                                         <option value="{{ $city->id }}" {{ (string) $detailCityId === (string) $city->id ? 'selected' : '' }}>{{ $city->name }}</option>
                                                     @endforeach
                                                 </select>
+                                            </div>
+                                            <div class="col-md-6 col-xl-4">
+                                                <label>Selected Users</label>
+                                                <select class="form-select select2 js-detail-users" name="selected_user_ids[{{ $index }}][]" multiple data-selected-users='@json($detailSelectedUserIds)'>
+                                                    @foreach ($detailSelectedUsers as $selectedUser)
+                                                        <option value="{{ $selectedUser->id }}" selected>{{ $selectedUser->name }}</option>
+                                                    @endforeach
+                                                </select>
+                                                <small class="text-muted">Only users from the selected city are shown.</small>
+                                                @error("selected_user_ids.$index")<div class="text-danger small mt-1">{{ $message }}</div>@enderror
                                             </div>
                                             <div class="col-md-6 col-xl-4">
                                                 <label>Venue</label>
@@ -256,6 +282,11 @@
                                         </select>
                                     </div>
                                     <div class="col-md-6 col-xl-4">
+                                        <label>Selected Users</label>
+                                        <select class="form-select select2 js-detail-users" name="selected_user_ids[__INDEX__][]" multiple data-selected-users="[]"></select>
+                                        <small class="text-muted">Only users from the selected city are shown.</small>
+                                    </div>
+                                    <div class="col-md-6 col-xl-4">
                                         <label>Venue</label>
                                         <select class="form-select select2 js-detail-venue" name="venue_id[]">
                                             <option value="">Select Venue</option>
@@ -270,6 +301,7 @@
                                 </div>
                             </div>
                         </template>
+                        @endif
 
                         <div class="d-flex justify-content-end gap-2 mt-4">
                             <a href="{{ route('competitions.index') }}" class="btn btn-outline-secondary btn-sm">Cancel</a>

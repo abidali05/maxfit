@@ -9,12 +9,15 @@ use App\Models\CompetitionResult;
 use App\Http\Controllers\Controller;
 use App\Models\CompetitionUserTotal;
 use Illuminate\Support\Facades\Auth;
+use App\Models\Set;
 
 class ManageCompetitionController extends Controller
 {
     public function getCompetitionDetail()
     {
-        $competitionDetails = CompetitionDetail::where('coach_id', Auth::guard('coach')->user()->id)->get();
+        $competitionDetails = CompetitionDetail::with(['competition', 'coach'])
+            ->where('coach_id', Auth::guard('coach')->user()->id)
+            ->get();
         return view('coach.competition-list', compact('competitionDetails'));
     }
 
@@ -29,9 +32,14 @@ class ManageCompetitionController extends Controller
     {
         $competitionUser = CompetitionUser::with(['user', 'competitionDetail.competition'])->findOrFail($id);
 
-        // Get all exercises for this competition
         $competition = $competitionUser->competitionDetail->competition;
-        $exercises = $competition->exercises; // via competition_exercises
+        $genz = strtolower((string) $competition->getRawOriginal('genz'));
+
+        $sets = Set::query()
+            ->with(['setExercises.exercise'])
+            ->whereRaw('LOWER(genz) = ?', [$genz])
+            ->orderBy('id')
+            ->get();
 
         // Get existing scores
         $results = CompetitionResult::with('videos')
@@ -39,7 +47,7 @@ class ManageCompetitionController extends Controller
             ->get()
             ->keyBy('exercise_id');
 
-        return view('coach.competition-users-edit', compact('competitionUser', 'exercises', 'results'));
+        return view('coach.competition-users-edit', compact('competitionUser', 'competition', 'sets', 'results'));
     }
 
     public function getCompetitionResultUpdate(Request $request,$id)

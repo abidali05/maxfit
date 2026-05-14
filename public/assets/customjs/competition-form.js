@@ -6,6 +6,7 @@
     const orgUrl = config.orgUrl || window.competitionOrganizationsUrl || null;
     const countryUrl = config.countryUrl || window.competitionCountriesUrl || null;
     const venueUrlBase = config.venueUrlBase || window.competitionVenuesUrlBase || null;
+    const acceptedUsersByCityUrlBase = config.acceptedUsersByCityUrlBase || null;
     const coachOptions = Array.isArray(window.competitionCoachOptions) ? window.competitionCoachOptions : [];
     const cityOptions = Array.isArray(window.competitionCityOptions) ? window.competitionCityOptions : [];
 
@@ -128,11 +129,18 @@
                 $el.select2('destroy');
             }
 
-            $el.select2({
+            const select2Options = {
                 theme: 'bootstrap-5',
                 width: '100%',
                 dropdownParent: $el.closest('.competition-field, .app-filter-card, form'),
-            });
+            };
+
+            if ($el.hasClass('js-detail-users')) {
+                select2Options.placeholder = 'Select users';
+                select2Options.closeOnSelect = false;
+            }
+
+            $el.select2(select2Options);
         });
     }
 
@@ -361,6 +369,73 @@
             });
     }
 
+    function loadAcceptedUsersByCity(block, clearCurrent = false) {
+        if (!block) {
+            return;
+        }
+
+        const citySelect = block.querySelector('.js-detail-city');
+        const usersSelect = block.querySelector('.js-detail-users');
+        if (!citySelect || !usersSelect) {
+            return;
+        }
+
+        if (clearCurrent) {
+            usersSelect.innerHTML = '';
+            $(usersSelect).val(null).trigger('change.select2');
+        }
+
+        const cityId = citySelect.value;
+        const selectedUsers = (() => {
+            try {
+                return JSON.parse(usersSelect.dataset.selectedUsers || '[]');
+            } catch (error) {
+                return [];
+            }
+        })();
+
+        usersSelect.disabled = true;
+        if (!acceptedUsersByCityUrlBase || !cityId) {
+            usersSelect.innerHTML = '';
+            usersSelect.disabled = false;
+            $(usersSelect).trigger('change.select2');
+            return;
+        }
+
+        usersSelect.innerHTML = '';
+        const loadingOption = document.createElement('option');
+        loadingOption.value = '';
+        loadingOption.textContent = 'Loading users...';
+        usersSelect.appendChild(loadingOption);
+        $(usersSelect).trigger('change.select2');
+
+        fetch(`${acceptedUsersByCityUrlBase}/${cityId}`, {
+            headers: { Accept: 'application/json' },
+        })
+            .then((response) => response.json())
+            .then((items) => {
+                usersSelect.innerHTML = '';
+                items.forEach((user) => {
+                    const option = document.createElement('option');
+                    option.value = user.id;
+                    option.textContent = user.name;
+                    if (!clearCurrent && selectedUsers.includes(Number(user.id))) {
+                        option.selected = true;
+                    }
+                    usersSelect.appendChild(option);
+                });
+                usersSelect.dataset.selectedUsers = '[]';
+                usersSelect.disabled = false;
+                $(usersSelect).trigger('change');
+                $(usersSelect).trigger('change.select2');
+            })
+            .catch(() => {
+                usersSelect.innerHTML = '';
+                usersSelect.disabled = false;
+                $(usersSelect).trigger('change.select2');
+            });
+    }
+
     function calculateEndTime(startTimeInput) {
         const timeAllowed = parseInt(document.getElementById('time_allowed')?.value || '0', 10);
         const endTimeInput = startTimeInput.closest('.competition-field')?.querySelector('.js-end-time');
@@ -409,7 +484,9 @@
         }
 
         const node = detailTemplate.content.firstElementChild.cloneNode(true);
-        node.dataset.detailIndex = String(competitionContainer ? competitionContainer.querySelectorAll('.competition-field').length : 0);
+        const nextIndex = competitionContainer ? competitionContainer.querySelectorAll('.competition-field').length : 0;
+        node.dataset.detailIndex = String(nextIndex);
+        node.innerHTML = node.innerHTML.replace(/__INDEX__/g, String(nextIndex));
         node.querySelectorAll('input, textarea').forEach((field) => {
             if (field.type === 'file') {
                 return;
@@ -424,46 +501,12 @@
             if (field.classList.contains('js-detail-venue')) {
                 field.dataset.selectedVenue = '';
             }
+            if (field.classList.contains('js-detail-users')) {
+                field.dataset.selectedUsers = '[]';
+            }
         });
 
         return node;
-    }
-
-    function cloneDetailBlockValues(sourceBlock, targetBlock) {
-        if (!sourceBlock || !targetBlock) {
-            return;
-        }
-
-        const sourceInputs = sourceBlock.querySelectorAll('input, textarea');
-        const targetInputs = targetBlock.querySelectorAll('input, textarea');
-
-        sourceInputs.forEach((sourceField, index) => {
-            const targetField = targetInputs[index];
-            if (!targetField || sourceField.type === 'file') {
-                return;
-            }
-
-            if (sourceField.type === 'hidden' || sourceField.type === 'date' || sourceField.type === 'time' || sourceField.tagName === 'TEXTAREA') {
-                targetField.value = sourceField.value;
-            }
-        });
-
-        const sourceSelects = sourceBlock.querySelectorAll('select');
-        const targetSelects = targetBlock.querySelectorAll('select');
-
-        sourceSelects.forEach((sourceField, index) => {
-            const targetField = targetSelects[index];
-            if (!targetField) {
-                return;
-            }
-
-            targetField.innerHTML = sourceField.innerHTML;
-            targetField.value = sourceField.value;
-
-            if (targetField.classList.contains('js-detail-venue')) {
-                targetField.dataset.selectedVenue = sourceField.value || '';
-            }
-        });
     }
 
     function addDetailBlock() {
@@ -471,29 +514,13 @@
             return;
         }
 
-        const existingBlocks = competitionContainer.querySelectorAll('.competition-field');
-        const sourceBlock = existingBlocks.length > 0 ? existingBlocks[existingBlocks.length - 1] : null;
         const block = buildDetailBlock();
         if (!block) {
             return;
         }
 
-        if (sourceBlock) {
-            cloneDetailBlockValues(sourceBlock, block);
-        }
-
         competitionContainer.appendChild(block);
         initSelect2(block);
-
-        const citySelect = block.querySelector('.js-detail-city');
-        if (citySelect && citySelect.value) {
-            loadVenues(block);
-        }
-
-        const startTimeInput = block.querySelector('.js-start-time');
-        if (startTimeInput && startTimeInput.value) {
-            calculateEndTime(startTimeInput);
-        }
 
         updateRemoveButtons();
         scheduleCountUpdate();
@@ -591,10 +618,15 @@
             $(competitionContainer).on('change select2:select', '.js-detail-city', function () {
                 const block = this.closest('.competition-field');
                 const venueSelect = block?.querySelector('.js-detail-venue');
+                const usersSelect = block?.querySelector('.js-detail-users');
                 if (venueSelect) {
                     venueSelect.dataset.selectedVenue = '';
                 }
+                if (usersSelect) {
+                    usersSelect.dataset.selectedUsers = '[]';
+                }
                 loadVenues(block);
+                loadAcceptedUsersByCity(block, true);
             });
         }
 
@@ -607,6 +639,7 @@
         competitionContainer?.querySelectorAll('.competition-field').forEach((block) => {
             if (block.querySelector('.js-detail-city')?.value) {
                 loadVenues(block);
+                loadAcceptedUsersByCity(block);
             }
 
             const startTimeInput = block.querySelector('.js-start-time');

@@ -111,4 +111,9 @@ class User extends Authenticatable
     {
         return $this->hasMany(PhysicalAssessment::class, 'user_id', 'id');
     }
+
+    public function latestPhysicalAssessment()
+    {
+        return $this->hasOne(PhysicalAssessment::class, 'user_id', 'id')->latestOfMany();
+    }
 }

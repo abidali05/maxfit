@@ -8,55 +8,79 @@
                     <div class="mb-4 d-flex align-items-center justify-content-between">
                         <h6 class="mb-0">Competition Details</h6>
                     </div>
+                    <div class="alert alert-info text-start py-2">
+                        Showing sets for:
+                        {{ $criteriaInfo['genz'] ?? '-' }} /
+                        {{ $criteriaInfo['fitness_level'] ?? 'N/A' }} /
+                        {{ $criteriaInfo['gender'] ?? 'N/A' }}
+                    </div>
                     <form action="{{ route('competition-users.update', $competitionUser->id) }}" method="POST"
                         id="competitionForm">
                         @csrf
                         @method('PUT')
 
-                        @foreach ($exercises as $exercise)
-                            <div class="mb-3 border p-3 rounded">
-                                <h5>{{ $exercise->name }}</h5>
-                                <label for="score_{{ $exercise->id }}" class="form-label">Score</label>
-                                <input type="number" step="0.01" name="scores[{{ $exercise->id }}]"
-                                    class="form-control score-input" value="{{ $results[$exercise->id]->score ?? '' }}"
-                                    required min="0">
-                                <div class="text-danger error-message" id="score_{{ $exercise->id }}-error"></div>
+                        @forelse ($sets as $set)
+                            @php
+                                $setExercises = $set->setExercises->filter(fn($se) => !empty($se->exercise));
+                            @endphp
 
-                                {{-- YouTube Links per exercise --}}
-                                <div class="mt-3">
-                                    <label class="form-label">YouTube Video Links</label>
-                                    <div id="youtube-links-wrapper-{{ $exercise->id }}">
-                                        @php
-                                            $exerciseLinks = collect($results[$exercise->id]->videos ?? []);
-                                        @endphp
+                            @if ($setExercises->isEmpty())
+                                @continue
+                            @endif
 
-                                        @if ($exerciseLinks->count())
-                                            @foreach ($exerciseLinks as $video)
-                                                <div class="d-flex mb-2 youtube-link-row">
-                                                    <input type="url" class="form-control me-2"
-                                                        name="youtube_links[{{ $exercise->id }}][]"
-                                                        value="{{ $video->youtube_link }}"
-                                                        placeholder="https://www.youtube.com/watch?v=..." required>
-                                                    <button type="button"
-                                                        class="btn btn-danger btn-sm remove-link">&times;</button>
-                                                </div>
-                                            @endforeach
-                                        @else
-                                            <div class="d-flex mb-2 youtube-link-row">
-                                                <input type="url" class="form-control me-2"
-                                                    name="youtube_links[{{ $exercise->id }}][]"
-                                                    placeholder="https://www.youtube.com/watch?v=..." required>
-                                                <button type="button"
-                                                    class="btn btn-danger btn-sm remove-link">&times;</button>
+                            <div class="mb-4 text-start">
+                                <h5 class="mb-3">{{ $set->name }}</h5>
+
+                                @foreach ($setExercises as $setExercise)
+                                    @php
+                                        $exercise = $setExercise->exercise;
+                                        $result = $results->get($exercise->id);
+                                        $exerciseLinks = collect($result?->videos ?? []);
+                                    @endphp
+
+                                    <div class="mb-3 border p-3 rounded">
+                                        <h6>{{ $exercise->name }}</h6>
+                                        <label for="score_{{ $exercise->id }}" class="form-label">Score</label>
+                                        <input type="number" step="0.01" name="scores[{{ $exercise->id }}]"
+                                            class="form-control score-input" value="{{ $result?->score ?? '' }}" required
+                                            min="0">
+                                        <div class="text-danger error-message" id="score_{{ $exercise->id }}-error"></div>
+
+                                        {{-- YouTube Links per exercise --}}
+                                        <div class="mt-3">
+                                            <label class="form-label">YouTube Video Links</label>
+                                            <div id="youtube-links-wrapper-{{ $exercise->id }}">
+                                                @if ($exerciseLinks->count())
+                                                    @foreach ($exerciseLinks as $video)
+                                                        <div class="d-flex mb-2 youtube-link-row">
+                                                            <input type="url" class="form-control me-2"
+                                                                name="youtube_links[{{ $exercise->id }}][]"
+                                                                value="{{ $video->youtube_link }}"
+                                                                placeholder="https://www.youtube.com/watch?v=..." required>
+                                                            <button type="button"
+                                                                class="btn btn-danger btn-sm remove-link">&times;</button>
+                                                        </div>
+                                                    @endforeach
+                                                @else
+                                                    <div class="d-flex mb-2 youtube-link-row">
+                                                        <input type="url" class="form-control me-2"
+                                                            name="youtube_links[{{ $exercise->id }}][]"
+                                                            placeholder="https://www.youtube.com/watch?v=..." required>
+                                                        <button type="button"
+                                                            class="btn btn-danger btn-sm remove-link">&times;</button>
+                                                    </div>
+                                                @endif
+
                                             </div>
-                                        @endif
-
+                                            <button type="button" class="btn btn-outline-secondary btn-sm add-link"
+                                                data-exercise="{{ $exercise->id }}">+ Add another link</button>
+                                        </div>
                                     </div>
-                                    <button type="button" class="btn btn-outline-secondary btn-sm add-link"
-                                        data-exercise="{{ $exercise->id }}">+ Add another link</button>
-                                </div>
+                                @endforeach
                             </div>
-                        @endforeach
+                        @empty
+                            <div class="text-start text-muted">No sets found for this user criteria. Ensure user has gender and latest physical assessment exercise type.</div>
+                        @endforelse
 
                         <button type="button" style="margin-top: 10px;" class="btn btn-success" id="submitScores">Save
                             Scores</button>

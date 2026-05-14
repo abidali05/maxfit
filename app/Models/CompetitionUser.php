@@ -13,6 +13,11 @@ class CompetitionUser extends Model
         return $this->belongsTo(CompetitionDetail::class);
     }
 
+    public function competition()
+    {
+        return $this->belongsTo(Competition::class);
+    }
+
     public function user()
     {
         return $this->belongsTo(User::class);

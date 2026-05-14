@@ -13,7 +13,7 @@
                         @csrf
                         @method('PUT')
                         <div class="row">
-                            <div class="col-md-6">
+                            <div class="col-md-4">
                                 <div class="mb-3">
                                     <label for="name" class="form-label">Name</label>
                                     <input type="text" class="form-control" id="name" name="name" value="{{ old('name', $set->name) }}" required>
@@ -23,15 +23,44 @@
                                 </div>
                             </div>
                             {{-- @dd($set->genz); --}}
-                            <div class="col-md-6">
+                            <div class="col-md-4">
                                 <div class="mb-3">
                                     <label for="genz" class="form-label">Genz</label>
                                     <select class="form-control" id="genz" name="genz" required>
                                         <option value="">Select Genz</option>
                                         <option value="fatherfits" {{ $set->genz == 'fatherfits' ? 'selected' : '' }}>Father Fit</option>
                                         <option value="motherfits" {{ $set->genz == 'motherfits' ? 'selected' : '' }}>Mother Fit</option>
+                                        <option value="both" {{ $set->genz == 'both' ? 'selected' : '' }}>Both</option>
                                     </select>
                                     @error('genz')
+                                        <div class="text-danger">{{ $message }}</div>
+                                    @enderror
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="fitness_level" class="form-label">Fitness Level</label>
+                                    <select class="form-control" id="fitness_level" name="fitness_level" required>
+                                        <option value="">Select Fitness Level</option>
+                                        <option value="Expert" {{ old('fitness_level', $set->fitness_level) == 'Expert' ? 'selected' : '' }}>Expert</option>
+                                        <option value="Immature" {{ old('fitness_level', $set->fitness_level) == 'Immature' ? 'selected' : '' }}>Immature</option>
+                                        <option value="both" {{ old('fitness_level', $set->fitness_level) == 'both' ? 'selected' : '' }}>Both</option>
+                                    </select>
+                                    @error('fitness_level')
+                                        <div class="text-danger">{{ $message }}</div>
+                                    @enderror
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="gender" class="form-label">Gender</label>
+                                    <select class="form-control" id="gender" name="gender" required>
+                                        <option value="">Select Gender</option>
+                                        <option value="Male" {{ old('gender', $set->gender) == 'Male' ? 'selected' : '' }}>Male</option>
+                                        <option value="Female" {{ old('gender', $set->gender) == 'Female' ? 'selected' : '' }}>Female</option>
+                                        <option value="both" {{ old('gender', $set->gender) == 'both' ? 'selected' : '' }}>Both</option>
+                                    </select>
+                                    @error('gender')
                                         <div class="text-danger">{{ $message }}</div>
                                     @enderror
                                 </div>
@@ -67,14 +96,23 @@
             const setExercises = @json($set->exercises->sortBy('pivot.sequence')->values());
             let selectedExercises = setExercises.map(ex => ({id: ex.id, name: ex.name}));
 
-            function loadExercises(genz) {
-                if (genz) {
-                    fetch(`/set/exercises-by-genz?genz=${genz}`)
+            function selectedCriteria() {
+                return {
+                    genz: document.getElementById('genz').value,
+                    fitness_level: document.getElementById('fitness_level').value,
+                    gender: document.getElementById('gender').value,
+                };
+            }
+
+            function loadExercises(criteria) {
+                if (criteria.genz && criteria.fitness_level && criteria.gender) {
+                    const params = new URLSearchParams(criteria);
+                    fetch(`/sets/exercises-by-criteria?${params.toString()}`)
                         .then(response => response.json())
                         .then(data => {
                             exercisesContainer.innerHTML = '';
                             if (data.length === 0) {
-                                exercisesContainer.innerHTML = '<div class="text-muted">No exercises found for this genz.</div>';
+                                exercisesContainer.innerHTML = '<div class="text-muted">No exercises found for selected criteria.</div>';
                                 return;
                             }
                             data.forEach(exercise => {
@@ -111,14 +149,14 @@
                             exercisesContainer.innerHTML = '<div class="text-danger">Error loading exercises.</div>';
                         });
                 } else {
-                    exercisesContainer.innerHTML = '<div class="text-muted">Please select a genz first.</div>';
+                    exercisesContainer.innerHTML = '<div class="text-muted">Select Genz, Exercise Type and Gender to load exercises.</div>';
                 }
             }
 
             function updateSelectedExercises() {
                 const container = document.getElementById('sortable-exercises');
                 container.innerHTML = '';
-                
+
                 selectedExercises.forEach((exercise, index) => {
                     const item = document.createElement('div');
                     item.className = 'list-group-item d-flex justify-content-between align-items-center';
@@ -131,7 +169,7 @@
                     `;
                     container.appendChild(item);
                 });
-                
+
                 if (selectedExercises.length > 0) {
                     new Sortable(container, {
                         animation: 150,
@@ -141,19 +179,19 @@
                     });
                 }
             }
-            
+
             function updateSequenceInputs() {
                 const items = document.querySelectorAll('#sortable-exercises .list-group-item');
                 const exerciseIds = [];
                 const sequences = [];
-                
+
                 items.forEach((item, index) => {
                     const exerciseId = item.dataset.exerciseId;
                     exerciseIds.push(exerciseId);
                     sequences.push(index + 1);
                     item.querySelector('span strong').textContent = `${index + 1}.`;
                 });
-                
+
                 const container = document.getElementById('sortable-exercises');
                 container.querySelectorAll('input[name="exercise_ids[]"]').forEach((input, index) => {
                     input.value = exerciseIds[index];
@@ -164,15 +202,18 @@
             }
 
             // Load exercises on page load
-            if (genzSelect.value) {
-                loadExercises(genzSelect.value);
+            const initialCriteria = selectedCriteria();
+            if (initialCriteria.genz && initialCriteria.fitness_level && initialCriteria.gender) {
+                loadExercises(initialCriteria);
                 updateSelectedExercises();
             }
 
-            genzSelect.addEventListener('change', function() {
+            ['genz', 'fitness_level', 'gender'].forEach((id) => {
+                document.getElementById(id).addEventListener('change', function() {
                 selectedExercises = [];
-                loadExercises(this.value);
+                loadExercises(selectedCriteria());
                 updateSelectedExercises();
+            });
             });
         });
     </script>

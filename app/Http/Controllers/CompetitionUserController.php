@@ -7,13 +7,54 @@ use App\Models\CompetitionUser;
 use App\Models\CompetitionDetail;
 use App\Models\CompetitionResult;
 use App\Models\CompetitionUserTotal;
+use App\Models\Set;
+use App\Models\PhysicalAssessment;
 use App\Jobs\ProcessCompetitionResults;
 
 class CompetitionUserController extends Controller
 {
+    private function normalizeGender(?string $gender): ?string
+    {
+        $value = strtolower(trim((string) $gender));
+        return match ($value) {
+            'male' => 'Male',
+            'female' => 'Female',
+            'other' => 'Other',
+            default => null,
+        };
+    }
+
+    private function normalizeFitnessLevel(?string $value): ?string
+    {
+        $normalized = strtolower(trim((string) $value));
+        return match ($normalized) {
+            'expert' => 'Expert',
+            'immature' => 'Immature',
+            default => null,
+        };
+    }
+
     public function index($id)
     {
-        $competition = CompetitionDetail::with('competitionUsers.user')->findOrFail($id);
+        $competition = CompetitionDetail::with(['competition', 'selectedUsers'])->findOrFail($id);
+
+        foreach ($competition->selectedUsers as $selectedUser) {
+            CompetitionUser::firstOrCreate(
+                [
+                    'competition_detail_id' => $competition->id,
+                    'user_id' => $selectedUser->id,
+                ],
+                [
+                    'competition_id' => $competition->competition?->id,
+                    'status' => 'accepted',
+                ]
+            );
+        }
+
+        $competition->load([
+            'competitionUsers.user',
+            'competitionUsers.total',
+        ]);
 
         return view('competition-users.index', compact('competition'));
     }
@@ -22,22 +63,58 @@ class CompetitionUserController extends Controller
     {
         $competitionUser = CompetitionUser::with(['user', 'competitionDetail.competition'])->findOrFail($id);
 
-        // Get all exercises for this competition
         $competition = $competitionUser->competitionDetail->competition;
-        $exercises = $competition->exercises; // via competition_exercises
+        $genz = strtolower((string) $competition->getRawOriginal('genz'));
+
+        $user = $competitionUser->user;
+
+        $latestAssessment = PhysicalAssessment::query()
+            ->where('user_id', $user->id)
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->first();
+
+        $fitnessLevel = $this->normalizeFitnessLevel($latestAssessment?->exercise_type);
+        $gender = $this->normalizeGender($user->gender ?: $latestAssessment?->gender);
+
+        $criteriaInfo = [
+            'genz' => $genz,
+            'fitness_level' => $fitnessLevel,
+            'gender' => $gender,
+        ];
+
+        $sets = collect();
+        if (!empty($fitnessLevel) && !empty($gender)) {
+            $sets = Set::query()
+                ->with(['setExercises.exercise'])
+                ->matchingCriteria($genz, $fitnessLevel, $gender)
+                ->orderBy('id')
+                ->get();
+        }
 
         // Get existing scores
-        $results = CompetitionResult::where('competition_user_id', $competitionUser->id)->get()->keyBy('exercise_id');
+        $results = CompetitionResult::with('videos')
+            ->where('competition_user_id', $competitionUser->id)
+            ->get()
+            ->keyBy('exercise_id');
 
-        return view('competition-users.edit', compact('competitionUser', 'exercises', 'results'));
+        return view('competition-users.edit', compact('competitionUser', 'competition', 'sets', 'results', 'criteriaInfo'));
     }
 
     public function update(Request $request, $id)
     {
         $competitionUser = CompetitionUser::findOrFail($id);
 
-        $scores = $request->input('scores', []); // array: exercise_id => score
-        $youtubeLinks = $request->input('youtube_links', []); // array of links
+        $validated = $request->validate([
+            'scores' => ['required', 'array'],
+            'scores.*' => ['required', 'numeric', 'min:0'],
+            'youtube_links' => ['nullable', 'array'],
+            'youtube_links.*' => ['nullable', 'array'],
+            'youtube_links.*.*' => ['nullable', 'url'],
+        ]);
+
+        $scores = $validated['scores']; // array: exercise_id => score
+        $youtubeLinks = $validated['youtube_links'] ?? []; // array: exercise_id => [links...]
 
         $totalScore = 0;
 
@@ -51,7 +128,7 @@ class CompetitionUserController extends Controller
             );
 
             // Save YouTube links for this exercise result
-            if (isset($youtubeLinks[$exerciseId])) {
+            if (array_key_exists($exerciseId, $youtubeLinks)) {
                 $result->videos()->delete(); // clear old
                 foreach ($youtubeLinks[$exerciseId] as $link) {
                     if ($link) {

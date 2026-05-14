@@ -27,7 +27,7 @@
                                     <tr>
                                         <td>{{ $i + 1 }}</td>
                                         <td>{{ $cu->user->name }}</td>
-                                        <td>{{ $competition->city }}</td>
+                                        <td>{{ $cu->user->city_name ?: ($cu->user->city ?? '-') }}</td>
                                         <td>{{ $cu->total->total_score ?? '-' }}</td>
                                         <td>{{ $cu->status ?? 'Pending' }}</td>
                                         <td>{{ $cu->total->rank ?? '-' }}</td>

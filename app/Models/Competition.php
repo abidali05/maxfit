@@ -15,7 +15,8 @@ class Competition extends Model
 
     protected $casts = [
         'has_entry_fee' => 'boolean',
-        'entry_fee' => 'decimal:2'
+        'entry_fee' => 'decimal:2',
+        'last_date' => 'date',
     ];
 
     public function videos()
