@@ -199,34 +199,19 @@ class CompetitionController extends Controller
         $fitnessLevel = $this->normalizeFitnessLevel($latestAssessment?->exercise_type);
         $gender = $this->normalizeGender($authUser?->gender ?: $latestAssessment?->gender);
 
+        $genzValues = $genzForFilter === 'both'
+            ? ['fatherfits', 'motherfits', 'both']
+            : [$genzForFilter, 'both'];
+
         // Load exercises with their sets
         $exercises = $competition->exercises()
             ->with(['sets' => function ($setQuery) use ($genzForFilter, $fitnessLevel, $gender) {
-                $setQuery->select('sets.id', 'sets.name', 'sets.genz', 'sets.fitness_level', 'sets.gender');
-                if (!empty($genzForFilter)) {
-                    $setQuery->where('sets.genz', $genzForFilter);
-                }
-                if (!empty($fitnessLevel) && !empty($gender)) {
-                    $setQuery->where('sets.fitness_level', $fitnessLevel)
-                        ->where('sets.gender', $gender);
-                }
+                $setQuery->select('sets.id', 'sets.name', 'sets.genz', 'sets.fitness_level', 'sets.gender')
+                    ->matchingCriteria($genzForFilter, $fitnessLevel ?? 'both', $gender ?? 'both');
             }])
-            ->where(function ($query) use ($genzForFilter) {
-                if (!empty($genzForFilter)) {
-                    $query->where('genz', $genzForFilter)->orWhere('genz', 'both');
-                    return;
-                }
-
-                $query->where('genz', 'both');
-            })
-            ->when(!empty($fitnessLevel) && !empty($gender), function ($query) use ($genzForFilter, $fitnessLevel, $gender) {
-                $query->whereHas('sets', function ($setQuery) use ($genzForFilter, $fitnessLevel, $gender) {
-                    if (!empty($genzForFilter)) {
-                        $setQuery->where('sets.genz', $genzForFilter);
-                    }
-                    $setQuery->where('sets.fitness_level', $fitnessLevel)
-                        ->where('sets.gender', $gender);
-                });
+            ->whereIn('genz', $genzValues)
+            ->whereHas('sets', function ($setQuery) use ($genzForFilter, $fitnessLevel, $gender) {
+                $setQuery->matchingCriteria($genzForFilter, $fitnessLevel ?? 'both', $gender ?? 'both');
             })
             ->get()
             ->filter(function ($exercise) {
@@ -257,7 +242,7 @@ class CompetitionController extends Controller
             ->get();
 
         // Ã¢Å“â€¦ Map results grouped by set
-        $results = $competitionUserTotals->map(function ($total) use ($exercises, $competitionResults, $genzForFilter, $fitnessLevel, $gender) {
+        $results = $competitionUserTotals->map(function ($total) use ($exercises, $competitionResults) {
             $userResults = $competitionResults[$total->competition_user_id] ?? collect();
 
             // First, build an array where each set has its exercises
@@ -268,15 +253,6 @@ class CompetitionController extends Controller
                 if (!$exercise) continue;
 
                 foreach ($exercise->sets as $set) {
-                    if (!empty($genzForFilter) && strtolower((string) $set->genz) !== strtolower((string) $genzForFilter)) {
-                        continue;
-                    }
-                    if (!empty($fitnessLevel) && !empty($gender)) {
-                        if ((string) $set->fitness_level !== (string) $fitnessLevel || (string) $set->gender !== (string) $gender) {
-                            continue;
-                        }
-                    }
-
                     if (!$setsData->has($set->id)) {
                         $setsData->put($set->id, [
                             'id' => $set->id,
@@ -300,7 +276,7 @@ class CompetitionController extends Controller
                 'user_image'  => $total->competitionUser->user->image ?? null,
                 'user_name'   => $total->competitionUser->user->name ?? null,
                 'rank'        => $total->rank,
-                'sets'        => $setsData->sortBy('id')->values(), // return sets ordered by set id
+                'sets'        => $setsData->sortBy('id')->values(),
             ];
         });
 
@@ -333,7 +309,8 @@ class CompetitionController extends Controller
         return match ($value) {
             'male' => 'Male',
             'female' => 'Female',
-            'other' => 'Other',
+            'other' => 'both',
+            'both' => 'both',
             default => null,
         };
     }
@@ -343,7 +320,8 @@ class CompetitionController extends Controller
         $normalized = strtolower(trim((string) $value));
         return match ($normalized) {
             'expert' => 'Expert',
-            'immature' => 'Immature',
+            'amateur' => 'Amateur',
+            'both' => 'both',
             default => null,
         };
     }

@@ -8,7 +8,7 @@ class Exercise extends Model
 {
     protected $guarded = [];
 
-    public const FITNESS_LEVELS = ['Expert', 'Immature'];
+    public const FITNESS_LEVELS = ['Expert', 'Amateur'];
     public const GENDERS = ['Male', 'Female', 'Other'];
 
     public function exercise_category()
@@ -49,9 +49,23 @@ class Exercise extends Model
 
     public function scopeMatchingCriteria($query, string $genz, string $fitnessLevel, string $gender)
     {
+        $genzValues = $genz === 'both'
+            ? ['fatherfits', 'motherfits', 'both']
+            : [$genz, 'both'];
+
+        $fitnessLevelValues = match ($fitnessLevel) {
+            'both' => ['Expert', 'Amateur', 'both'],
+            'Amateur' => ['Amateur', 'both'],
+            default => [$fitnessLevel, 'both'],
+        };
+
+        $genderValues = $gender === 'both'
+            ? ['Male', 'Female', 'both']
+            : [$gender, 'both'];
+
         return $query
-            ->whereIn('genz', [$genz, 'both'])
-            ->where('fitness_level', $fitnessLevel)
-            ->where('gender', $gender);
+            ->whereIn('genz', $genzValues)
+            ->whereIn('fitness_level', $fitnessLevelValues)
+            ->whereIn('gender', $genderValues);
     }
 }

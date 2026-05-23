@@ -18,6 +18,8 @@
     const orgSelect = document.getElementById('org');
     const genzHidden = document.getElementById('genz_hidden');
     const genzSelect = document.getElementById('genz');
+    const fitnessLevelSelect = document.getElementById('fitness_level');
+    const genderSelect = document.getElementById('gender');
     const eligibleUsersCountEl = document.getElementById('eligibleUsersCount');
     const detailTemplate = document.getElementById('competition-detail-template');
 
@@ -107,14 +109,18 @@
     }
 
     function syncGenz() {
-        const genz = inferGenz(ageGroupInput ? ageGroupInput.value : "");
+        const derivedGenz = inferGenz(ageGroupInput ? ageGroupInput.value : "");
+        const currentSelected = genzSelect ? (genzSelect.value || "") : "";
+        const nextGenz = currentSelected || derivedGenz;
+
         if (genzHidden) {
-            genzHidden.value = genz;
+            genzHidden.value = nextGenz;
         }
-        if (genzSelect) {
-            genzSelect.value = genz;
+        if (genzSelect && !currentSelected) {
+            genzSelect.value = nextGenz;
         }
-        return genz;
+
+        return nextGenz;
     }
 
     function initSelect2(scope) {
@@ -159,6 +165,8 @@
         const country = String(readSelectValue(countrySelect) || '').trim();
         const orgs = readSelectValues(orgSelect).map((value) => String(value).trim()).filter(Boolean);
         const genz = genzHidden ? genzHidden.value.trim() : "";
+        const fitnessLevel = String(readSelectValue(fitnessLevelSelect) || '').trim();
+        const gender = String(readSelectValue(genderSelect) || '').trim();
 
         if (ageGroup) {
             params.set('age_group', ageGroup);
@@ -169,6 +177,12 @@
         orgs.forEach((value) => params.append('orgs[]', value));
         if (genz) {
             params.set('genz', genz);
+        }
+        if (fitnessLevel) {
+            params.set('fitness_level', fitnessLevel);
+        }
+        if (gender) {
+            params.set('gender', gender);
         }
 
         selectedOrgTypes().forEach((value) => params.append('org_types[]', value));
@@ -575,6 +589,27 @@
             ageGroupInput.addEventListener('input', function () {
                 syncGenz();
                 scheduleCountUpdate(700);
+            });
+        }
+
+        if (genzSelect) {
+            genzSelect.addEventListener('change', function () {
+                if (genzHidden) {
+                    genzHidden.value = this.value || '';
+                }
+                scheduleCountUpdate(250);
+            });
+        }
+
+        if (fitnessLevelSelect) {
+            fitnessLevelSelect.addEventListener('change', function () {
+                scheduleCountUpdate(250);
+            });
+        }
+
+        if (genderSelect) {
+            genderSelect.addEventListener('change', function () {
+                scheduleCountUpdate(250);
             });
         }
 

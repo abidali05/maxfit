@@ -2,14 +2,15 @@
 
 namespace App\Http\Controllers\API;
 
-use Carbon\Carbon;
-use App\Models\Set;
-use App\Models\Exercise;
-use App\Models\User;
-use App\Models\ExerciseCategory;
 use App\Http\Controllers\Controller;
-use Illuminate\Support\Facades\Auth;
+use App\Models\Exercise;
+use App\Models\ExerciseCategory;
+use App\Models\Set;
+use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class ExercisesController extends Controller
 {
@@ -36,23 +37,48 @@ class ExercisesController extends Controller
         ], 'Exercises fetched successfully', 200);
     }
 
+    private function normalizeGender(?string $gender): ?string
+    {
+        $value = strtolower(trim((string) $gender));
+
+        return match ($value) {
+            'male' => 'Male',
+            'female' => 'Female',
+            'both' => 'both',
+            default => null,
+        };
+    }
+
+    private function normalizeFitnessLevel(?string $value): ?string
+    {
+        $normalized = strtolower(trim((string) $value));
+
+        return match ($normalized) {
+            'expert' => 'Expert',
+            'amateur' => 'Amateur',
+            'both' => 'both',
+            default => null,
+        };
+    }
+
     public function assesmentExercises()
     {
         $user = Auth::user();
 
         $age = Carbon::parse($user->dob)->age;
+        $genz = $age < 14 ? 'motherfits' : 'fatherfits';
 
-        if ($age < 14) {
-            $allowedGenz = ['motherfits', 'both'];
-        } else {
-            $allowedGenz = ['fatherfits', 'both'];
-        }
+        $latestAssessment = $user->latestPhysicalAssessment()->first();
+        $fitnessLevel = $this->normalizeFitnessLevel($latestAssessment?->exercise_type);
+        $gender = $this->normalizeGender($user->gender ?: $latestAssessment?->gender);
 
-        $userAssessments = \DB::table('daily_assessments')
+        $userAssessments = DB::table('daily_assessments')
             ->where('user_id', $user->id)
             ->pluck('count', 'exercise_id');
 
-        $sets = Set::with('exercises')->whereIn('genz', $allowedGenz)
+        $sets = Set::query()
+            ->with('exercises')
+            ->matchingCriteria($genz, $fitnessLevel ?? 'both', $gender ?? 'both')
             ->get()
             ->map(function ($set) use ($userAssessments) {
                 $set->exercises->map(function ($exercise) use ($userAssessments) {

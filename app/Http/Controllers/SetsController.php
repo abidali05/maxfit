@@ -12,9 +12,9 @@ class SetsController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'genz' => 'required|in:fatherfits,motherfits',
-            'fitness_level' => 'required|in:Expert,Immature',
-            'gender' => 'required|in:Male,Female,Other',
+            'genz' => 'required|string|max:255',
+            'fitness_level' => 'required|string|max:255',
+            'gender' => 'required|string|max:255',
             'exercise_ids' => 'required|array|min:1',
             'exercise_ids.*' => 'exists:exercises,id',
             'sequences' => 'required|array|min:1',
