@@ -228,6 +228,21 @@ class AuthController extends Controller
         return $this->success([], 'Logout Successfull', 200);
     }
 
+    public function deleteAccount(Request $request)
+    {
+        $user = auth('sanctum')->user();
+
+        if (!$user) {
+            return $this->unauthorized('Unauthorized', [], 401);
+        }
+
+        // Revoke all tokens before deleting the user record.
+        $user->tokens()->delete();
+        $user->delete();
+
+        return $this->success([], 'Account deleted successfully', 200);
+    }
+
     public function profile(Request $request)
     {
         $user = $this->authRepo->profile();

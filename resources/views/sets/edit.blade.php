@@ -43,7 +43,7 @@
                                     <select class="form-control" id="fitness_level" name="fitness_level" required>
                                         <option value="">Select Fitness Level</option>
                                         <option value="Expert" {{ old('fitness_level', $set->fitness_level) == 'Expert' ? 'selected' : '' }}>Expert</option>
-                                        <option value="Immature" {{ old('fitness_level', $set->fitness_level) == 'Immature' ? 'selected' : '' }}>Immature</option>
+                                        <option value="Amateur" {{ old('fitness_level', $set->fitness_level) == 'Amateur' ? 'selected' : '' }}>Amateur</option>
                                         <option value="both" {{ old('fitness_level', $set->fitness_level) == 'both' ? 'selected' : '' }}>Both</option>
                                     </select>
                                     @error('fitness_level')

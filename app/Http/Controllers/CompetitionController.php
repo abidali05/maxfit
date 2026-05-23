@@ -166,6 +166,8 @@ class CompetitionController extends Controller
                 'org_types' => $request->input('org_types', []),
                 'orgs' => $orgIds,
                 'genz' => $request->input('genz') ?: $this->eligibilityService->deriveGenzFromAgeGroup($request->input('age_group')),
+                'exercise_type' => $request->input('fitness_level'),
+                'gender' => $request->input('gender'),
             ];
 
             return response()->json([
@@ -187,7 +189,9 @@ class CompetitionController extends Controller
         $rules = [
             'name' => 'required|string|max:255',
             'age_group' => ['required', 'string', 'regex:/^\d+\s*(?:-\s*\d+)?$/'],
-            'genz' => 'required|in:motherfits,fatherfits',
+            'genz' => 'required|in:motherfits,fatherfits,both',
+            'fitness_level' => 'required|in:Expert,Amateur,both',
+            'gender' => 'required|in:Male,Female,both',
             'country' => 'required|exists:countries,id',
             'description' => 'nullable|string',
             'last_date' => 'nullable|date',
@@ -235,7 +239,7 @@ class CompetitionController extends Controller
         $validated['age_group_max'] = $parsedAgeGroup['max'];
         $validated['derived_genz'] = $this->eligibilityService->deriveGenzFromAgeGroup($validated['age_group']);
 
-        if (!empty($validated['derived_genz']) && $validated['genz'] !== $validated['derived_genz']) {
+        if (!empty($validated['derived_genz']) && $validated['genz'] !== 'both' && $validated['genz'] !== $validated['derived_genz']) {
             throw \Illuminate\Validation\ValidationException::withMessages([
                 'genz' => ['Genz does not match the selected age group.'],
             ]);
@@ -468,6 +472,8 @@ class CompetitionController extends Controller
                 'name' => $validated['name'],
                 'age_group' => $validated['age_group'],
                 'genz' => $validated['genz'],
+                'fitness_level' => $validated['fitness_level'],
+                'gender' => $validated['gender'],
                 'country' => $validated['country'],
                 'description' => $validated['description'] ?? null,
                 'last_date' => $validated['last_date'] ?? null,
@@ -491,7 +497,9 @@ class CompetitionController extends Controller
             $competition->save();
             $this->syncCompetitionVideos($competition, $request, $validated);
 
-            $exerciseIds = Exercise::whereIn('genz', [$validated['genz'], 'both'])->pluck('id');
+            $exerciseIds = Exercise::query()
+                ->matchingCriteria($validated['genz'], $validated['fitness_level'], $validated['gender'])
+                ->pluck('id');
             $competition->exercises()->sync($exerciseIds);
 
             DB::commit();
@@ -645,6 +653,8 @@ class CompetitionController extends Controller
                 'name' => $validated['name'],
                 'age_group' => $validated['age_group'],
                 'genz' => $validated['genz'],
+                'fitness_level' => $validated['fitness_level'],
+                'gender' => $validated['gender'],
                 'country' => $validated['country'],
                 'description' => $validated['description'] ?? null,
                 'last_date' => $validated['last_date'] ?? null,
@@ -662,7 +672,9 @@ class CompetitionController extends Controller
             $this->syncCompetitionDetails($competition, $request, $validated);
             $this->syncCompetitionVideos($competition, $request, $validated);
 
-            $exerciseIds = Exercise::whereIn('genz', [$validated['genz'], 'both'])->pluck('id');
+            $exerciseIds = Exercise::query()
+                ->matchingCriteria($validated['genz'], $validated['fitness_level'], $validated['gender'])
+                ->pluck('id');
             $competition->exercises()->sync($exerciseIds);
 
             DB::commit();

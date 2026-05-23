@@ -23,10 +23,24 @@ class Set extends Model
 
     public function scopeMatchingCriteria($query, string $genz, string $fitnessLevel, string $gender)
     {
+        $genzValues = $genz === 'both'
+            ? ['fatherfits', 'motherfits', 'both']
+            : [$genz, 'both'];
+
+        $fitnessLevelValues = match ($fitnessLevel) {
+            'both' => ['Expert', 'Amateur', 'both'],
+            'Amateur' => ['Amateur', 'both'],
+            default => [$fitnessLevel, 'both'],
+        };
+
+        $genderValues = $gender === 'both'
+            ? ['Male', 'Female', 'both']
+            : [$gender, 'both'];
+
         return $query
-            ->where('genz', $genz)
-            ->where('fitness_level', $fitnessLevel)
-            ->where('gender', $gender);
+            ->whereIn('genz', $genzValues)
+            ->whereIn('fitness_level', $fitnessLevelValues)
+            ->whereIn('gender', $genderValues);
     }
 
 

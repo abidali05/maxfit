@@ -29,7 +29,7 @@ class CompetitionUserController extends Controller
         $normalized = strtolower(trim((string) $value));
         return match ($normalized) {
             'expert' => 'Expert',
-            'immature' => 'Immature',
+            'amateur' => 'Amateur',
             default => null,
         };
     }

@@ -10,6 +10,28 @@ use Illuminate\Support\Facades\Schema;
 
 class CompetitionEligibilityService
 {
+    private function normalizeGenderValue(?string $value): ?string
+    {
+        $normalized = strtolower(trim((string) $value));
+
+        return match ($normalized) {
+            'male' => 'Male',
+            'female' => 'Female',
+            default => null,
+        };
+    }
+
+    private function normalizeFitnessLevelValue(?string $value): ?string
+    {
+        $normalized = strtolower(trim((string) $value));
+
+        return match ($normalized) {
+            'expert' => 'Expert',
+            'amateur' => 'Amateur',
+            default => null,
+        };
+    }
+
     private function normalizeGenzValue(?string $value): ?string
     {
         if ($value === null) {
@@ -93,6 +115,20 @@ class CompetitionEligibilityService
                     [$normalized]
                 );
             }
+        }
+
+        $gender = $this->normalizeGenderValue($filters['gender'] ?? null);
+        if ($gender !== null) {
+            $query->whereHas('latestPhysicalAssessment', function (Builder $assessmentQuery) use ($gender) {
+                $assessmentQuery->whereRaw('LOWER(COALESCE(gender, "")) = ?', [strtolower($gender)]);
+            });
+        }
+
+        $fitnessLevel = $this->normalizeFitnessLevelValue($filters['exercise_type'] ?? ($filters['fitness_level'] ?? null));
+        if ($fitnessLevel !== null) {
+            $query->whereHas('latestPhysicalAssessment', function (Builder $assessmentQuery) use ($fitnessLevel) {
+                $assessmentQuery->whereRaw('LOWER(COALESCE(exercise_type, "")) = ?', [strtolower($fitnessLevel)]);
+            });
         }
 
         return $query;

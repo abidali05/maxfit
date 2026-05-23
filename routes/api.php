@@ -68,6 +68,7 @@ Route::prefix('v1')->group(function () {
 
 Route::prefix('v1')->middleware('auth:sanctum')->group(function () {
     Route::post('logout', [AuthController::class, 'logout']);
+    Route::post('delete-account', [AuthController::class, 'deleteAccount']);
 
 
     Route::get('/profile', [AuthController::class, 'profile']);

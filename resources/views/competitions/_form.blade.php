@@ -15,6 +15,8 @@
     $selectedOrgs = $selectedOrgs ?? [];
     $competitionAgeGroup = old('age_group', $competition->age_group ?? '');
     $competitionGenz = old('genz', $competition->getRawOriginal('genz') ?? '');
+    $competitionFitnessLevel = old('fitness_level', $competition->fitness_level ?? '');
+    $competitionGender = old('gender', $competition->gender ?? '');
     $competitionDescription = old('description', $competition->description ?? '');
     $videoLinks = old('youtube_links', $competition->videos?->pluck('video_file')->all() ?? ['']);
     $detailSource = old('coach_id', []);
@@ -137,9 +139,30 @@
                                     <option value="">Select</option>
                                     <option value="motherfits" {{ $competitionGenz === 'motherfits' ? 'selected' : '' }}>Mother Fit</option>
                                     <option value="fatherfits" {{ $competitionGenz === 'fatherfits' ? 'selected' : '' }}>Father Fit</option>
+                                    <option value="both" {{ $competitionGenz === 'both' ? 'selected' : '' }}>Both</option>
                                 </select>
                                 <input type="hidden" name="genz" id="genz_hidden" value="{{ $competitionGenz }}">
                                 @error('genz')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
+                            </div>
+                            <div class="col-md-6 col-xl-4">
+                                <label for="fitness_level">Fitness Level</label>
+                                <select class="form-select" id="fitness_level" name="fitness_level">
+                                    <option value="">Select</option>
+                                    <option value="Expert" {{ $competitionFitnessLevel === 'Expert' ? 'selected' : '' }}>Expert</option>
+                                    <option value="Amateur" {{ $competitionFitnessLevel === 'Amateur' ? 'selected' : '' }}>Amateur</option>
+                                    <option value="both" {{ $competitionFitnessLevel === 'both' ? 'selected' : '' }}>Both</option>
+                                </select>
+                                @error('fitness_level')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
+                            </div>
+                            <div class="col-md-6 col-xl-4">
+                                <label for="gender">Gender</label>
+                                <select class="form-select" id="gender" name="gender">
+                                    <option value="">Select</option>
+                                    <option value="Male" {{ $competitionGender === 'Male' ? 'selected' : '' }}>Male</option>
+                                    <option value="Female" {{ $competitionGender === 'Female' ? 'selected' : '' }}>Female</option>
+                                    <option value="both" {{ $competitionGender === 'both' ? 'selected' : '' }}>Both</option>
+                                </select>
+                                @error('gender')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
                             </div>
                         </div>
 
