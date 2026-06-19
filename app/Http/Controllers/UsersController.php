@@ -40,7 +40,6 @@ class UsersController extends Controller
 
     public function store(Request $request)
     {
-        // dd($request->all());
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email',
@@ -62,7 +61,7 @@ class UsersController extends Controller
             'guardian_phone' => 'required|string|max:15',
             'guardian_dob' => 'required|date',
             'image' => 'required|image|mimes:jpeg,png,jpg,webp,avif|max:2048',
-            'company_code' => 'nullable',
+            'company_code' => 'required|exists:branches,code',
         ]);
 
 

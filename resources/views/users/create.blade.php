@@ -72,10 +72,10 @@
                             <div class="col-md-6">
                                 <label class="form-label">Role</label>
                                 <select name="role" id="role" class="form-select">
-                                    <option value="admin">Admin</option>
-                                    <option value="user" selected>User</option>
+                                    <option value="admin" {{ old('role') == 'admin' ? 'selected' : '' }}>Admin</option>
+                                    <option value="user" {{ old('role', 'user') == 'user' ? 'selected' : '' }}>User</option>
                                 </select>
-                                @error('number')
+                                @error('role')
                                     <span class="text-danger">{{ $message }}</span>
                                 @enderror
                             </div>
@@ -110,7 +110,7 @@
                                     class="form-select select2 @error('province') is-invalid @enderror" required>
                                     <option value="">Select Province</option>
                                     @foreach ($data['provinces'] as $province)
-                                        <option value="{{ $province->id }}">{{ $province->name }}</option>
+                                        <option value="{{ $province->id }}" {{ old('province') == $province->id ? 'selected' : '' }}>{{ $province->name }}</option>
                                     @endforeach
                                 </select>
 
@@ -124,7 +124,14 @@
                                 <select name="city" id="city"
                                     class="form-select select2 @error('city') is-invalid @enderror" required>
                                     <option value="">Select Province First</option>
-
+                                    @if(old('province'))
+                                        @php
+                                            $oldCity = \App\Models\City::find(old('city'));
+                                        @endphp
+                                        @if($oldCity)
+                                            <option value="{{ $oldCity->id }}" selected>{{ $oldCity->name }}</option>
+                                        @endif
+                                    @endif
                                 </select>
 
                                 @error('city')
@@ -141,7 +148,7 @@
                                     class="form-select select2 @error('organisation_type') is-invalid @enderror" required>
                                     <option value="">Select Organisation Type</option>
                                     @foreach ($data['organisation_types'] as $organisation_type)
-                                        <option value="{{ $organisation_type->id }}">{{ $organisation_type->name }}
+                                        <option value="{{ $organisation_type->id }}" {{ old('organisation_type') == $organisation_type->id ? 'selected' : '' }}>{{ $organisation_type->name }}
                                         </option>
                                     @endforeach
                                 </select>
@@ -155,6 +162,14 @@
                                 <select name="organisation" id="organisation"
                                     class="form-select select2 @error('organisation') is-invalid @enderror" >
                                     <option value="">Select Organisation Type First</option>
+                                    @if(old('organisation_type'))
+                                        @php
+                                            $oldOrg = \App\Models\Organisations::find(old('organisation'));
+                                        @endphp
+                                        @if($oldOrg)
+                                            <option value="{{ $oldOrg->id }}" selected>{{ $oldOrg->name }}</option>
+                                        @endif
+                                    @endif
                                 </select>
                                 @error('organisation')
                                     <span class="text-danger">{{ $message }}</span>
@@ -199,8 +214,8 @@
                                 <select name="gender" id="gender"
                                     class="form-select @error('gender') is-invalid @enderror" required>
                                     <option value="">Select Gender</option>
-                                    <option value="Male">Male</option>
-                                    <option value="Female">Female</option>
+                                    <option value="Male" {{ old('gender') == 'Male' ? 'selected' : '' }}>Male</option>
+                                    <option value="Female" {{ old('gender') == 'Female' ? 'selected' : '' }}>Female</option>
                                 </select>
 
                                 @error('gender')

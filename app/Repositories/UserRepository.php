@@ -171,11 +171,8 @@ class UserRepository implements UserRepositoryInterface
 
     public function store_user(array $data)
     {
-        // dd($data['company_code']);
         $branch = Branch::where('code',$data['company_code'])->first();
-        // dd($branch);
-        
-        
+
         $user = new User();
         $user->name = $data['name'];
         $user->email = $data['email'];
@@ -185,7 +182,14 @@ class UserRepository implements UserRepositoryInterface
         $user->cnic = $data['cnic'];
         $user->branch_name = $branch->name;
         $user->branch_id = $branch->id;
-        $user->dob = $data['dob'];
+        $incomingDob = Carbon::parse($data['dob']);
+        $user->dob = $incomingDob->toDateString();
+        
+        // Calculate age and store genz type
+        $age = $incomingDob->age;
+        $user->genz = $age < 14 ? 'Mother Fit' : 'Father Fit';
+        $user->age_at_registration = $incomingDob->diffInYears(now());
+
         $user->class = $data['class'];
         $user->gender = $data['gender'];
         $user->hobbies = $data['hobbies'];
@@ -193,19 +197,18 @@ class UserRepository implements UserRepositoryInterface
         $user->guardian_name = $data['guardian_name'];
         $user->guardian_email = $data['guardian_email'];
         $user->guardian_number = $data['guardian_phone'];
-        $user->dob = $data['guardian_dob'];
+        $user->guardian_dob = Carbon::parse($data['guardian_dob'])->toDateString();
         $user->city = $data['city'];
         $user->organisation_type = $data['organisation_type'];
         $user->organisation_id = $data['organisation'];
         $user->state_province = $data['province'];
-        $user->country = 166; // Pakistan
+        $user->country = 166;
         if (isset($data['image']) && $data['image']->isValid()) {
             $imageName = time() . '.' . $data['image']->getClientOriginalExtension();
             $path = $data['image']->storeAs('uploads/profile_images', $imageName, 'public');
             $user->image = $path;
         }
         $user->save();
-        dd('$data');
     }
 
     public function get_user($id)
@@ -225,7 +228,22 @@ class UserRepository implements UserRepositoryInterface
             $user->password = Hash::make($data['password']);
         }
         $user->cnic = $data['cnic'];
-        $user->dob = $data['dob'];
+
+        // Check if DOB has changed to update age_at_registration
+        $incomingDob = Carbon::parse($data['dob']);
+        $dobChanged = !$user->dob || Carbon::parse($user->dob)->toDateString() !== $incomingDob->toDateString();
+
+        $user->dob = $incomingDob->toDateString();
+
+        // Calculate age and store genz type
+        $age = $incomingDob->age;
+        $user->genz = $age < 14 ? 'Mother Fit' : 'Father Fit';
+
+        if ($dobChanged || $user->age_at_registration === null) {
+            $referenceDate = $user->created_at ? Carbon::parse($user->created_at) : now();
+            $user->age_at_registration = $incomingDob->diffInYears($referenceDate);
+        }
+
         $user->class = $data['class'];
         $user->gender = $data['gender'];
         $user->hobbies = $data['hobbies'];
@@ -233,7 +251,7 @@ class UserRepository implements UserRepositoryInterface
         $user->guardian_name = $data['guardian_name'];
         $user->guardian_email = $data['guardian_email'];
         $user->guardian_number = $data['guardian_phone'];
-        $user->guardian_dob = $data['guardian_dob'];
+        $user->guardian_dob = Carbon::parse($data['guardian_dob'])->toDateString();
         $user->city = $data['city'];
         $user->organisation_type = $data['organisation_type'];
         $user->organisation_id = $data['organisation'];
