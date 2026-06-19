@@ -111,12 +111,12 @@
     function syncGenz() {
         const derivedGenz = inferGenz(ageGroupInput ? ageGroupInput.value : "");
         const currentSelected = genzSelect ? (genzSelect.value || "") : "";
-        const nextGenz = currentSelected || derivedGenz;
+        const nextGenz = derivedGenz || currentSelected;
 
         if (genzHidden) {
             genzHidden.value = nextGenz;
         }
-        if (genzSelect && !currentSelected) {
+        if (genzSelect) {
             genzSelect.value = nextGenz;
         }
 

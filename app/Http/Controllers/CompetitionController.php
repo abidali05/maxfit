@@ -169,6 +169,12 @@ class CompetitionController extends Controller
                 'exercise_type' => $request->input('fitness_level'),
                 'gender' => $request->input('gender'),
             ];
+            // $users = $this->eligibilityService->query($filters)->get(['id', 'name', 'email', 'dob', 'genz', 'organisation_id', 'organisation_type']);
+            // dd([
+            //     'filters' => $filters,
+            //     'count' => $users->count(),
+            //     'users' => $users->toArray(),
+            // ]);
 
             return response()->json([
                 'count' => $this->eligibilityService->count($filters),

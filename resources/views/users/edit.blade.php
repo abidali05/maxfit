@@ -46,7 +46,7 @@
                         <div class="row g-3">
                             <div class="col-md-6">
                                 <label class="form-label">Name</label>
-                                <input type="text" class="form-control" placeholder="Name" value="{{ $user->name }}"
+                                <input type="text" class="form-control" placeholder="Name" value="{{ old('name', $user->name) }}"
                                     name="name" required>
                                 @error('name')
                                     <span class="text-danger">{{ $message }}</span>
@@ -54,7 +54,7 @@
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label">Email</label>
-                                <input type="email" class="form-control" placeholder="Email" value="{{ $user->email }}"
+                                <input type="email" class="form-control" placeholder="Email" value="{{ old('email', $user->email) }}"
                                     name="email" required>
                                 @error('email')
                                     <span class="text-danger">{{ $message }}</span>
@@ -62,7 +62,7 @@
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label">Phone</label>
-                                <input type="text" class="form-control" placeholder="Phone" value="{{ $user->number }}"
+                                <input type="text" class="form-control" placeholder="Phone" value="{{ old('number', $user->number) }}"
                                     name="number" required>
                                 @error('number')
                                     <span class="text-danger">{{ $message }}</span>
@@ -72,10 +72,10 @@
                             <div class="col-md-6">
                                 <label class="form-label">Role</label>
                                 <select name="role" id="role" class="form-select">
-                                    <option value="admin" {{$user->role == 'admin' ? 'selected' : ''}}>Admin</option>
-                                    <option value="user" {{$user->role == 'user' ? 'selected' : ''}}>User</option>
+                                    <option value="admin" {{ old('role', $user->role) == 'admin' ? 'selected' : '' }}>Admin</option>
+                                    <option value="user" {{ old('role', $user->role) == 'user' ? 'selected' : '' }}>User</option>
                                 </select>
-                                @error('number')
+                                @error('role')
                                     <span class="text-danger">{{ $message }}</span>
                                 @enderror
                             </div>
@@ -110,7 +110,7 @@
                                     class="form-select select2 @error('province') is-invalid @enderror" required>
                                     <option value="">Select Province</option>
                                     @foreach ($data['provinces'] as $province)
-                                        <option value="{{ $province->id }}" {{$user->state_province == $province->id ? 'selected' : ''}}>{{ $province->name }}</option>
+                                        <option value="{{ $province->id }}" {{ old('province', $user->state_province) == $province->id ? 'selected' : '' }}>{{ $province->name }}</option>
                                     @endforeach
                                 </select>
 
@@ -123,13 +123,14 @@
                                 <label class="form-label">City</label>
                                 <select name="city" id="city"
                                     class="form-select select2 @error('city') is-invalid @enderror" required>
+                                    @php
+                                        $selectedCityId = old('city', $user->city);
+                                    @endphp
                                     @foreach ($data['cities'] as $city)
-                                    @if ($user->city == $city->id)
-                                        <option value="{{ $city->id }}" selected>{{ $city->name }}</option> 
-                                    @endif
-                                        
+                                        @if ($selectedCityId == $city->id)
+                                            <option value="{{ $city->id }}" selected>{{ $city->name }}</option> 
+                                        @endif
                                     @endforeach
-
                                 </select>
 
                                 @error('city')
@@ -146,7 +147,7 @@
                                     class="form-select select2 @error('organisation_type') is-invalid @enderror" required>
                                     <option value="">Select Organisation Type</option>
                                     @foreach ($data['organisation_types'] as $organisation_type)
-                                        <option value="{{ $organisation_type->id }}" {{$user->organisation_type == $organisation_type->id ? 'selected' : ''}}>{{ $organisation_type->name }}
+                                        <option value="{{ $organisation_type->id }}" {{ old('organisation_type', $user->organisation_type) == $organisation_type->id ? 'selected' : '' }}>{{ $organisation_type->name }}
                                         </option>
                                     @endforeach
                                 </select>
@@ -159,12 +160,13 @@
                                 <label class="form-label">Organisation</label>
                                 <select name="organisation" id="organisation"
                                     class="form-select select2 @error('organisation') is-invalid @enderror" required>
+                                    @php
+                                        $selectedOrgId = old('organisation', $user->organisation_id);
+                                    @endphp
                                     @foreach ($data['organizations'] as $organisation)
-                                    @if ($user->organisation_id == $organisation->id)
-                                        
-                                    <option value="{{ $organisation->id }}" {{$user->organisation_id == $organisation->id ? 'selected' : ''}}>{{ $organisation->name }}
-                                    </option>
-                                    @endif
+                                        @if ($selectedOrgId == $organisation->id)
+                                            <option value="{{ $organisation->id }}" selected>{{ $organisation->name }}</option>
+                                        @endif
                                     @endforeach
                                 </select>
                                 @error('organisation')
@@ -177,7 +179,7 @@
                             <div class="col-md-6">
                                 <label class="form-label">CNIC</label>
                                 <input type="number" class="form-control" placeholder="CNIC"
-                                    value="{{ $user->cnic }}" name="cnic" required>
+                                    value="{{ old('cnic', $user->cnic) }}" name="cnic" required>
                                 @error('cnic')
                                     <span class="text-danger">{{ $message }}</span>
                                 @enderror
@@ -186,7 +188,7 @@
                             <div class="col-md-6">
                                 <label class="form-label">DOB</label>
                                 <input type="text" class="form-control datepicker @error('dob') is-invalid @enderror "
-                                    placeholder="Date Of Birth" value="{{ $user->dob }}" name="dob"
+                                    placeholder="Date Of Birth" value="{{ old('dob', $user->dob) }}" name="dob"
                                     id="dob" required>
                                 @error('dob')
                                     <span class="text-danger">{{ $message }}</span>
@@ -199,7 +201,7 @@
                                 <label class="form-label">Class</label>
                                 <input type="text" name="class" id="class"
                                     class="form-control @error('class') is-invalid @enderror" placeholder="Class"
-                                    value="{{ $user->class }}" required>
+                                    value="{{ old('class', $user->class) }}" required>
                                 @error('class')
                                     <span class="text-danger">{{ $message }}</span>
                                 @enderror
@@ -210,8 +212,8 @@
                                 <select name="gender" id="gender"
                                     class="form-select @error('gender') is-invalid @enderror" required>
                                     <option value="">Select Gender</option>
-                                    <option value="Male" {{ $user->gender == 'Male' ? 'selected' : '' }}>Male</option>
-                                    <option value="Female" {{$user->gender == 'Female' ? 'selected' : ''}}>Female</option>
+                                    <option value="Male" {{ old('gender', $user->gender) == 'Male' ? 'selected' : '' }}>Male</option>
+                                    <option value="Female" {{ old('gender', $user->gender) == 'Female' ? 'selected' : '' }}>Female</option>
                                 </select>
 
                                 @error('gender')
@@ -225,7 +227,7 @@
                             <div class="col-md-6">
                                 <label class="form-label">Hobbies</label>
                                 <textarea name="hobbies" id="hobbies" class="form-control @error('hobbies') is-invalid @enderror" cols="30"
-                                    rows="3" required>{{ $user->hobbies }}</textarea>
+                                    rows="3" required>{{ old('hobbies', $user->hobbies) }}</textarea>
                                 @error('hobbies')
                                     <span class="text-danger">{{ $message }}</span>
                                 @enderror
@@ -233,7 +235,7 @@
                             <div class="col-md-6">
                                 <label class="form-label">Sports Played</label>
                                 <textarea name="sports_played" id="sports_played" class="form-control @error('sports_played') is-invalid @enderror"
-                                    cols="30" rows="3" required>{{ $user->sports_played }}</textarea>
+                                    cols="30" rows="3" required>{{ old('sports_played', $user->sports_played) }}</textarea>
                                 @error('sports_played')
                                     <span class="text-danger">{{ $message }}</span>
                                 @enderror
@@ -247,7 +249,7 @@
                                 <label class="form-label">Guardian Name</label>
                                 <input type="text" name="guardian_name" id="guardian_name"
                                     class="form-control @error('guardian_name') is-invalid @enderror"
-                                    placeholder="Guardian Name" value="{{ $user->guardian_name }}" required>
+                                    placeholder="Guardian Name" value="{{ old('guardian_name', $user->guardian_name) }}" required>
                                 @error('guardian_name')
                                     <span class="text-danger">{{ $message }}</span>
                                 @enderror
@@ -257,7 +259,7 @@
                                 <label class="form-label">Guardian Email</label>
                                 <input type="email" name="guardian_email" id="guardian_email"
                                     class="form-control @error('guardian_email') is-invalid @enderror"
-                                    placeholder="Guardian Email" value="{{ $user->guardian_email }}" required>
+                                    placeholder="Guardian Email" value="{{ old('guardian_email', $user->guardian_email) }}" required>
                                 @error('guardian_email')
                                     <span class="text-danger">{{ $message }}</span>
                                 @enderror
@@ -269,7 +271,7 @@
                                 <label class="form-label">Guardian Phone</label>
                                 <input type="text" name="guardian_phone" id="guardian_phone"
                                     class="form-control @error('guardian_phone') is-invalid @enderror"
-                                    placeholder="Guardian Phone" value="{{ $user->guardian_number }}" required>
+                                    placeholder="Guardian Phone" value="{{ old('guardian_phone', $user->guardian_number) }}" required>
                                 @error('guardian_phone')
                                     <span class="text-danger">{{ $message }}</span>
                                 @enderror
@@ -279,7 +281,7 @@
                                 <label class="form-label">Guardian DOB</label>
                                 <input type="text"
                                     class="form-control datepicker @error('guardian_dob') is-invalid @enderror "
-                                    placeholder="Guardian Date Of Birth" value="{{ $user->guardian_dob }}"
+                                    placeholder="Guardian Date Of Birth" value="{{ old('guardian_dob', $user->guardian_dob) }}"
                                     name="guardian_dob" id="guardian_dob" required>
                                 @error('guardian_dob')
                                     <span class="text-danger">{{ $message }}</span>
