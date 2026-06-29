@@ -32,7 +32,7 @@ class ProfileController extends Controller
                 'name' => 'nullable|string|max:255',
                 'number' => 'nullable|string|max:15|unique:users,number,' . $user->id,
                 'username' => 'nullable|string|max:255|unique:users,username,' . $user->id,
-                'image' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
+                'image' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:10240',
                 'user_id' => 'nullable|integer|exists:users,id',
             ]);
 

@@ -42,7 +42,7 @@
                                         <h6>{{ $exercise->name }}</h6>
                                         <label for="score_{{ $exercise->id }}" class="form-label">Score</label>
                                         <input type="number" step="0.01" name="scores[{{ $exercise->id }}]"
-                                            class="form-control score-input" value="{{ $result?->score ?? '' }}" required
+                                            class="form-control score-input" value="{{ $result?->score ?? '' }}"
                                             min="0">
                                         <div class="text-danger error-message" id="score_{{ $exercise->id }}-error"></div>
 
@@ -56,7 +56,7 @@
                                                             <input type="url" class="form-control me-2"
                                                                 name="youtube_links[{{ $exercise->id }}][]"
                                                                 value="{{ $video->youtube_link }}"
-                                                                placeholder="https://www.youtube.com/watch?v=..." required>
+                                                                placeholder="https://www.youtube.com/watch?v=...">
                                                             <button type="button"
                                                                 class="btn btn-danger btn-sm remove-link">&times;</button>
                                                         </div>
@@ -65,7 +65,7 @@
                                                     <div class="d-flex mb-2 youtube-link-row">
                                                         <input type="url" class="form-control me-2"
                                                             name="youtube_links[{{ $exercise->id }}][]"
-                                                            placeholder="https://www.youtube.com/watch?v=..." required>
+                                                            placeholder="https://www.youtube.com/watch?v=...">
                                                         <button type="button"
                                                             class="btn btn-danger btn-sm remove-link">&times;</button>
                                                     </div>
@@ -125,18 +125,16 @@
                 // Validate each score input
                 $('.score-input').each(function() {
                     const input = $(this);
-                    const exerciseId = input.attr('name').match(/\d+/)[
-                        0]; // Extract exercise ID from name
-                    const value = parseFloat(input.val()) || 0;
+                    const exerciseId = input.attr('name').match(/\d+/)[0]; // Extract exercise ID from name
+                    const valStr = input.val().trim();
 
-                    if (!input.val().trim()) {
-                        document.getElementById(`score_${exerciseId}-error`).textContent =
-                            'Score is required.';
-                        isValid = false;
-                    } else if (value < 0) {
-                        document.getElementById(`score_${exerciseId}-error`).textContent =
-                            'Score cannot be negative.';
-                        isValid = false;
+                    if (valStr !== '') {
+                        const value = parseFloat(valStr) || 0;
+                        if (value < 0) {
+                            document.getElementById(`score_${exerciseId}-error`).textContent =
+                                'Score cannot be negative.';
+                            isValid = false;
+                        }
                     }
                 });
 
@@ -159,7 +157,7 @@
                     div.innerHTML = `
                 <input type="url" class="form-control me-2"
                        name="youtube_links[${exerciseId}][]"
-                       placeholder="https://www.youtube.com/watch?v=..." required>
+                       placeholder="https://www.youtube.com/watch?v=...">
                 <button type="button" class="btn btn-danger btn-sm remove-link">&times;</button>
             `;
 

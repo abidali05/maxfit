@@ -14,7 +14,7 @@
                         </form>
                     </div>
                     <div class="table-responsive">
-                        <table id="competitions-table" class="table mb-0 align-middle text-start table-bordered datatable"
+                        <table id="competitions-table" class="table mb-0 align-middle text-start table-bordered"
                             style="table-layout: auto;">
                             <thead>
                                 <tr class="text-dark">
@@ -30,7 +30,7 @@
                             </thead>
 
                             <tbody>
-                                @forelse ($competitionDetail as $detail)
+                                @foreach ($competitionDetail as $detail)
                                     <tr>
                                         <td>{{ $loop->iteration }}</td>
 
@@ -91,54 +91,7 @@
                                             </a>
                                         </td>
                                     </tr>
-
-                                    <!-- Delete Modal -->
-                                    <div class="modal fade" id="deleteModal{{ $detail->id }}" tabindex="-1"
-                                        aria-labelledby="deleteModalLabel{{ $detail->id }}" aria-hidden="true">
-                                        <div class="modal-dialog modal-dialog-centered">
-                                            <div class="modal-content">
-                                                <div class="modal-header">
-                                                    <h5 class="modal-title" id="deleteModalLabel{{ $detail->id }}">
-                                                        Delete Confirmation
-                                                    </h5>
-                                                    <button type="button" class="btn-close" data-bs-dismiss="modal"
-                                                        aria-label="Close"></button>
-                                                </div>
-
-                                                <div class="modal-body">
-                                                    Are you sure you want to delete this competition detail?
-                                                </div>
-
-                                                <div class="modal-footer">
-                                                    <button type="button" class="btn btn-secondary"
-                                                        data-bs-dismiss="modal">
-                                                        Cancel
-                                                    </button>
-
-                                                    <form action="{{ route('competition-details.destroy', $detail->id) }}"
-                                                        method="POST">
-                                                        @csrf
-                                                        @method('DELETE')
-
-                                                        <input type="hidden" name="competition_detail_id"
-                                                            value="{{ $detail->id }}">
-
-                                                        <button type="submit" class="btn btn-danger">
-                                                            Delete
-                                                        </button>
-                                                    </form>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                @empty
-                                    <tr>
-                                        <td colspan="8" class="text-center text-muted">
-                                            No competition details found.
-                                        </td>
-                                    </tr>
-                                @endforelse
+                                @endforeach
                             </tbody>
                         </table>
                     </div>
@@ -147,6 +100,48 @@
             </div>
         </div>
     </div>
+
+    {{-- Modals outside the table --}}
+    @foreach ($competitionDetail as $detail)
+        <div class="modal fade" id="deleteModal{{ $detail->id }}" tabindex="-1"
+            aria-labelledby="deleteModalLabel{{ $detail->id }}" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="deleteModalLabel{{ $detail->id }}">
+                            Delete Confirmation
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"
+                            aria-label="Close"></button>
+                    </div>
+
+                    <div class="modal-body">
+                        Are you sure you want to delete this competition detail?
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary"
+                            data-bs-dismiss="modal">
+                            Cancel
+                        </button>
+
+                        <form action="{{ route('competition-details.destroy', $detail->id) }}"
+                            method="POST">
+                            @csrf
+                            @method('DELETE')
+
+                            <input type="hidden" name="competition_detail_id"
+                                value="{{ $detail->id }}">
+
+                            <button type="submit" class="btn btn-danger">
+                                Delete
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endforeach
 @endsection
 
 @push('styles')
@@ -176,6 +171,7 @@
                 pageLength: 10,
                 order: [],
                 language: {
+                    emptyTable: "No competition details found.",
                     search: "",
                     searchPlaceholder: "Search competitions..."
                 }

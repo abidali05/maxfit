@@ -23,7 +23,7 @@ class AuthRepository implements AuthRepositoryInterface
         $user->country = $data['country'];
         $user->city = $data['city'];
         $user->state_province = $data['state_province'];
-        $user->branch_id = $data['branch_id'];
+        $user->branch_id = (isset($data['branch_id']) && $data['branch_id'] !== '') ? $data['branch_id'] : null;
         $user->number = $data['number'];
         $user->profile_step = "1";
 

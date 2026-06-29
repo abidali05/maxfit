@@ -187,10 +187,60 @@ class CompetitionController extends Controller
 
     private function validateCompetitionRequest(Request $request, bool $isUpdate = false): array
     {
+        if (($request->isMethod('POST') || $request->isMethod('PUT') || $request->isMethod('PATCH')) && count($request->all()) === 0) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'error' => ['Image size exceeds the allowed limit. Maximum image size is 2 MB.'],
+            ]);
+        }
+
         $orgInput = $request->input('org', []);
         $request->merge([
             'org' => array_values(array_filter(Arr::wrap($orgInput), fn ($value) => $value !== null && $value !== '')),
         ]);
+
+        if ($request->has('competition_image') || $request->file('competition_image')) {
+            $compImage = $request->file('competition_image');
+            if ($compImage instanceof \Illuminate\Http\UploadedFile) {
+                if (!$compImage->isValid() && $compImage->getError() === UPLOAD_ERR_INI_SIZE) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'competition_image' => ['Image size exceeds the allowed limit. Maximum image size is 2 MB.'],
+                    ]);
+                }
+            }
+        }
+
+        if ($request->has('image')) {
+            $images = $request->file('image');
+            if (is_array($images)) {
+                foreach ($images as $index => $file) {
+                    if ($file instanceof \Illuminate\Http\UploadedFile) {
+                        if (!$file->isValid() && $file->getError() === UPLOAD_ERR_INI_SIZE) {
+                            throw \Illuminate\Validation\ValidationException::withMessages([
+                                "image.$index" => ['The image exceeds the server upload limit (upload_max_filesize in php.ini).'],
+                            ]);
+                        }
+                    }
+                }
+
+                $cleanedImages = [];
+                foreach ($images as $index => $file) {
+                    if ($file instanceof \Illuminate\Http\UploadedFile && $file->isValid()) {
+                        $cleanedImages[$index] = $file;
+                    } else {
+                        $cleanedImages[$index] = null;
+                    }
+                }
+                $request->files->set('image', $cleanedImages);
+            }
+        }
+
+        if ($request->has('competition_image')) {
+            $compImage = $request->file('competition_image');
+            if ($compImage !== null && !($compImage instanceof \Illuminate\Http\UploadedFile && $compImage->isValid())) {
+                $request->files->remove('competition_image');
+                $request->offsetUnset('competition_image');
+            }
+        }
 
         $rules = [
             'name' => 'required|string|max:255',
@@ -433,14 +483,33 @@ class CompetitionController extends Controller
             return [];
         }
 
-        return User::query()
+        $competition = Competition::with(['organizationTypes', 'organisations'])->find($competitionId);
+        if (!$competition) {
+            return [];
+        }
+
+        $orgTypeIds = $competition->organizationTypes->pluck('id')->all();
+        if ($orgTypeIds === [] && !empty($competition->org_type)) {
+            $orgTypeIds = [(int) $competition->org_type];
+        }
+
+        $orgIds = $competition->organisations->pluck('id')->map(fn ($id) => (int) $id)->values()->all();
+        if ($orgIds === [] && !empty($competition->org)) {
+            $orgIds = [(int) $competition->org];
+        }
+
+        $filters = [
+            'age_group' => $competition->age_group,
+            'country' => $competition->country,
+            'org_types' => $orgTypeIds,
+            'orgs' => $orgIds,
+            'genz' => $competition->getRawOriginal('genz'),
+            'exercise_type' => $competition->fitness_level,
+            'gender' => $competition->gender,
+        ];
+
+        return $this->eligibilityService->query($filters)
             ->where('city', $cityId)
-            ->whereIn('id', function ($query) use ($competitionId) {
-                $query->select('competition_users.user_id')
-                    ->from('competition_users')
-                    ->where('competition_users.competition_id', $competitionId)
-                    ->where('competition_users.status', 'accepted');
-            })
             ->pluck('id')
             ->map(fn ($id) => (int) $id)
             ->all();
@@ -453,14 +522,35 @@ class CompetitionController extends Controller
             return response()->json([]);
         }
 
-        $users = User::query()
+        if (!$competition->relationLoaded('organizationTypes')) {
+            $competition->load('organizationTypes');
+        }
+        if (!$competition->relationLoaded('organisations')) {
+            $competition->load('organisations');
+        }
+
+        $orgTypeIds = $competition->organizationTypes->pluck('id')->all();
+        if ($orgTypeIds === [] && !empty($competition->org_type)) {
+            $orgTypeIds = [(int) $competition->org_type];
+        }
+
+        $orgIds = $competition->organisations->pluck('id')->map(fn ($id) => (int) $id)->values()->all();
+        if ($orgIds === [] && !empty($competition->org)) {
+            $orgIds = [(int) $competition->org];
+        }
+
+        $filters = [
+            'age_group' => $competition->age_group,
+            'country' => $competition->country,
+            'org_types' => $orgTypeIds,
+            'orgs' => $orgIds,
+            'genz' => $competition->getRawOriginal('genz'),
+            'exercise_type' => $competition->fitness_level,
+            'gender' => $competition->gender,
+        ];
+
+        $users = $this->eligibilityService->query($filters)
             ->where('city', $cityId)
-            ->whereIn('id', function ($query) use ($competition) {
-                $query->select('competition_users.user_id')
-                    ->from('competition_users')
-                    ->where('competition_users.competition_id', $competition->id)
-                    ->where('competition_users.status', 'accepted');
-            })
             ->orderBy('name')
             ->get(['id', 'name']);
 
