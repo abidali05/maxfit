@@ -19,6 +19,7 @@ use App\Http\Controllers\Controller;
 use App\Models\CompetitionUserTotal;
 use Brian2694\Toastr\Facades\Toastr;
 use Illuminate\Support\Facades\Auth;
+use App\Models\PhysicalAssessment;
 use Illuminate\Support\Facades\Storage;
 use App\Repositories\Contracts\CompetitionRepositoryInterface;
 
@@ -232,6 +233,27 @@ class CompetitionController extends Controller
         return view('coach.competition-list-user', compact('competition'));
     }
 
+    private function normalizeGender(?string $gender): ?string
+    {
+        $value = strtolower(trim((string) $gender));
+        return match ($value) {
+            'male' => 'Male',
+            'female' => 'Female',
+            'other' => 'Other',
+            default => null,
+        };
+    }
+
+    private function normalizeFitnessLevel(?string $value): ?string
+    {
+        $normalized = strtolower(trim((string) $value));
+        return match ($normalized) {
+            'expert' => 'Expert',
+            'amateur' => 'Amateur',
+            default => null,
+        };
+    }
+
     public function getCompetitionDetailUserUpdate($id)
     {
         $competitionUser = CompetitionUser::with(['user', 'competitionDetail.competition'])->findOrFail($id);
@@ -239,11 +261,25 @@ class CompetitionController extends Controller
         $competition = $competitionUser->competitionDetail->competition;
         $genz = strtolower((string) $competition->getRawOriginal('genz'));
 
-        $sets = Set::query()
-            ->with(['setExercises.exercise'])
-            ->whereRaw('LOWER(genz) = ?', [$genz])
-            ->orderBy('id')
-            ->get();
+        $user = $competitionUser->user;
+
+        $latestAssessment = PhysicalAssessment::query()
+            ->where('user_id', $user->id)
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->first();
+
+        $fitnessLevel = $this->normalizeFitnessLevel($latestAssessment?->exercise_type);
+        $gender = $this->normalizeGender($user->gender ?: $latestAssessment?->gender);
+
+        $sets = collect();
+        if (!empty($fitnessLevel) && !empty($gender)) {
+            $sets = Set::query()
+                ->with(['setExercises.exercise'])
+                ->matchingCriteria($genz, $fitnessLevel, $gender)
+                ->orderBy('id')
+                ->get();
+        }
 
         // Get existing scores
         $results = CompetitionResult::with('videos')
@@ -260,7 +296,7 @@ class CompetitionController extends Controller
 
         $validated = $request->validate([
             'scores' => ['required', 'array'],
-            'scores.*' => ['required', 'numeric', 'min:0'],
+            'scores.*' => ['nullable', 'numeric', 'min:0'],
             'youtube_links' => ['nullable', 'array'],
             'youtube_links.*' => ['nullable', 'array'],
             'youtube_links.*.*' => ['nullable', 'url'],
@@ -272,6 +308,14 @@ class CompetitionController extends Controller
         $totalScore = 0;
 
         foreach ($scores as $exerciseId => $score) {
+            if ($score === null || $score === '') {
+                CompetitionResult::where([
+                    'competition_user_id' => $competitionUser->id,
+                    'exercise_id' => $exerciseId
+                ])->delete();
+                continue;
+            }
+
             $result = CompetitionResult::updateOrCreate(
                 [
                     'competition_user_id' => $competitionUser->id,

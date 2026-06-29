@@ -126,6 +126,11 @@
                             <div class="col-md-6 col-xl-4">
                                 <label for="competition_image">Competition Image</label>
                                 <input type="file" class="form-control" name="competition_image" id="competition_image" accept="image/*">
+                                @if ($isEdit && $competition->competition_image)
+                                    <div class="mt-2">
+                                        <img src="{{ asset($competition->competition_image) }}" alt="Competition Image" class="img-thumbnail" style="max-height: 80px;">
+                                    </div>
+                                @endif
                                 @error('competition_image')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
                             </div>
                             <div class="col-md-12">
@@ -275,7 +280,15 @@
                                             <div class="col-md-6 col-xl-3"><label>End Date</label><input type="date" class="form-control" name="end_date[]" value="{{ $detailEndDate }}"></div>
                                             <div class="col-md-6 col-xl-3"><label>Start Time</label><input type="time" class="form-control js-start-time" name="start_time[]" value="{{ $detailStartTime }}"></div>
                                             <div class="col-md-6 col-xl-3"><label>End Time</label><input type="time" class="form-control js-end-time" name="end_time[]" value="{{ $detailEndTime }}" readonly><small class="text-muted">Auto calculated</small></div>
-                                            <div class="col-md-6 col-xl-4"><label>Image</label><input type="file" class="form-control" name="image[]" accept="image/*"></div>
+                                            <div class="col-md-6 col-xl-4">
+                                                <label>Image</label>
+                                                <input type="file" class="form-control" name="image[]" accept="image/*">
+                                                @if ($detail && $detail->image)
+                                                    <div class="mt-2">
+                                                        <img src="{{ asset('storage/' . $detail->image) }}" alt="Detail Image" class="img-thumbnail" style="max-height: 60px;">
+                                                    </div>
+                                                @endif
+                                            </div>
                             <div class="col-md-12 d-flex justify-content-end"><button type="button" class="btn btn-outline-danger btn-sm remove-competition {{ $index === 0 ? 'd-none' : '' }}">Remove Competition</button></div>
                                         </div>
                                     </div>

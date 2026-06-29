@@ -36,7 +36,7 @@
                                         <h6 class="mb-2">{{ $exercise->name }}</h6>
                                         <label for="score_{{ $exercise->id }}" class="form-label">Score</label>
                                         <input type="number" step="0.01" name="scores[{{ $exercise->id }}]"
-                                            class="form-control" value="{{ $result?->score ?? '' }}" required min="0">
+                                            class="form-control" value="{{ $result?->score ?? '' }}" min="0">
 
                                         {{-- YouTube Link (single input; preserves extra existing links in hidden fields) --}}
                                         <div class="mt-3">

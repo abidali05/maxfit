@@ -36,7 +36,7 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                @forelse($assessments as $userId => $userAssessments)
+                                @foreach($assessments as $userId => $userAssessments)
                                     <tr>
                                         <td>{{ $loop->iteration }}</td>
                                         <td>{{ $userAssessments->first()->user->name ?? 'N/A' }}</td>
@@ -53,13 +53,7 @@
                                             @endforeach
                                         </td>
                                     </tr>
-                                @empty
-                                    <tr>
-                                        <td colspan="4" class="text-center text-muted">
-                                            No assessments found for this exercise
-                                        </td>
-                                    </tr>
-                                @endforelse
+                                @endforeach
 
                             </tbody>
                         </table>

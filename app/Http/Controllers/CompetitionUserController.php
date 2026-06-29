@@ -39,19 +39,28 @@ class CompetitionUserController extends Controller
         $competition = CompetitionDetail::with(['competition', 'selectedUsers'])->findOrFail($id);
 
         foreach ($competition->selectedUsers as $selectedUser) {
-            CompetitionUser::firstOrCreate(
-                [
-                    'competition_detail_id' => $competition->id,
-                    'user_id' => $selectedUser->id,
-                ],
-                [
-                    'competition_id' => $competition->competition?->id,
-                    'status' => 'accepted',
-                ]
-            );
+            $acceptedUser = CompetitionUser::where('user_id', $selectedUser->id)
+                ->where('status', 'accepted')
+                ->where(function ($query) use ($competition) {
+                    $query->where('competition_id', $competition->competition_id)
+                        ->orWhere('competition_detail_id', $competition->id);
+                })
+                ->orderByRaw('CASE WHEN competition_detail_id = ? THEN 0 WHEN competition_detail_id IS NULL THEN 1 ELSE 2 END', [$competition->id])
+                ->first();
+
+            if ($acceptedUser) {
+                if ($acceptedUser->competition_detail_id !== $competition->id) {
+                    $acceptedUser->update([
+                        'competition_detail_id' => $competition->id,
+                    ]);
+                }
+            }
         }
 
         $competition->load([
+            'competitionUsers' => function ($query) {
+                $query->where('status', 'accepted');
+            },
             'competitionUsers.user',
             'competitionUsers.total',
         ]);
@@ -107,7 +116,7 @@ class CompetitionUserController extends Controller
 
         $validated = $request->validate([
             'scores' => ['required', 'array'],
-            'scores.*' => ['required', 'numeric', 'min:0'],
+            'scores.*' => ['nullable', 'numeric', 'min:0'],
             'youtube_links' => ['nullable', 'array'],
             'youtube_links.*' => ['nullable', 'array'],
             'youtube_links.*.*' => ['nullable', 'url'],
@@ -119,6 +128,14 @@ class CompetitionUserController extends Controller
         $totalScore = 0;
 
         foreach ($scores as $exerciseId => $score) {
+            if ($score === null || $score === '') {
+                CompetitionResult::where([
+                    'competition_user_id' => $competitionUser->id,
+                    'exercise_id' => $exerciseId
+                ])->delete();
+                continue;
+            }
+
             $result = CompetitionResult::updateOrCreate(
                 [
                     'competition_user_id' => $competitionUser->id,

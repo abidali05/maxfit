@@ -146,6 +146,7 @@
 
     <!-- Display Toastr -->
     {!! Toastr::message() !!}
+    @stack('scripts')
 </body>
 
 </html>

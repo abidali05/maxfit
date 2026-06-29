@@ -12,7 +12,13 @@ return new class extends Migration
             return;
         }
 
-        DB::statement('ALTER TABLE `competitions` MODIFY `age_group` VARCHAR(20) NOT NULL');
+        if (DB::getDriverName() === 'mysql') {
+            DB::statement('ALTER TABLE `competitions` MODIFY `age_group` VARCHAR(20) NOT NULL');
+        } else {
+            Schema::table('competitions', function (\Illuminate\Database\Schema\Blueprint $table) {
+                $table->string('age_group', 20)->change();
+            });
+        }
     }
 
     public function down(): void
@@ -21,7 +27,13 @@ return new class extends Migration
             return;
         }
 
-        DB::statement('ALTER TABLE `competitions` MODIFY `age_group` INT NOT NULL');
+        if (DB::getDriverName() === 'mysql') {
+            DB::statement('ALTER TABLE `competitions` MODIFY `age_group` INT NOT NULL');
+        } else {
+            Schema::table('competitions', function (\Illuminate\Database\Schema\Blueprint $table) {
+                $table->integer('age_group')->change();
+            });
+        }
     }
 };
 

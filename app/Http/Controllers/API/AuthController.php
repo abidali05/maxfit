@@ -29,7 +29,7 @@ class AuthController extends Controller
             'email' => 'required|email|unique:users',
             'password' => 'required|string|min:6|confirmed|regex:/[^A-Za-z0-9]/',
             'number' => 'required|string|unique:users,number',
-            'image' => 'required|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
+            'image' => 'required|image|mimes:jpeg,png,jpg,gif,svg|max:10240',
             'terms_conditions' => 'required|boolean',
             "country" => 'required',
             "city" => 'required',
