@@ -91,7 +91,7 @@ class AuthRepository implements AuthRepositoryInterface
         $user->organisation_type = $data['organisation_type'];
         $user->organisation_id = $data['organisation_id'];
         $user->class = $data['class'];
-        $user->hobbies = $data['hobbies'];
+        // $user->hobbies = $data['hobbies'];
         $user->sports_played = $data['sports_played'];
         $user->guardian_name = $data['guardian_name'];
         $user->guardian_email = $data['guardian_email'] ?? '';
@@ -122,8 +122,8 @@ class AuthRepository implements AuthRepositoryInterface
             'bmi' => $data['bmi'],
             'gender' => $data['gender'],
             'exercise_type' => $data['exercise_type'],
-            'body_shape' => $data['body_shape'],
-            'required_body_shape' => $data['required_body_shape'],
+            // 'body_shape' => $data['body_shape'],
+            // 'required_body_shape' => $data['required_body_shape'],
         ]);
 
         $user->profile_step = "3";

@@ -70,16 +70,22 @@ class GoalController extends Controller
 
     public function storeGoalWithDate(Request $request)
     {
-        $validator = Validator::make($request->all(), [
-            'userId'              => 'required|exists:users,id',
-            'start_date'          => 'required|date',
-            'end_date'            => 'required|date|after:start_date',
-            'sets'                => 'required|array',
-            'sets.*.set_id'       => 'required|exists:sets,id',
-            'sets.*.days'         => 'required|array',
-            'sets.*.exercises'    => 'required|array',
-            'sets.*.exercises.*'  => 'nullable|numeric'
-        ]);
+        $rules = [
+            'userId' => 'required|exists:users,id',
+            'skip'   => 'nullable|in:yes',
+        ];
+
+        if ($request->skip !== 'yes') {
+            $rules['start_date']         = 'required|date';
+            $rules['end_date']           = 'required|date|after:start_date';
+            $rules['sets']               = 'required|array';
+            $rules['sets.*.set_id']      = 'required|exists:sets,id';
+            $rules['sets.*.days']        = 'required|array';
+            $rules['sets.*.exercises']   = 'required|array';
+            $rules['sets.*.exercises.*'] = 'nullable|numeric';
+        }
+
+        $validator = Validator::make($request->all(), $rules);
 
         if ($validator->fails()) {
             return $this->unprocessable($validator->errors()->toArray(), 'Validation Error');
@@ -87,6 +93,16 @@ class GoalController extends Controller
 
         try {
             $userId = (int) $request->userId;
+            $skip = $request->skip === 'yes';
+
+            if ($skip) {
+                User::where('id', $userId)->update([
+                    'is_skip' => 1,
+                    'goal_setting' => false,
+                ]);
+
+                return $this->success(null, 'Goal setting skipped successfully', 200);
+            }
 
             foreach ($request->sets as $set) {
                 $setId = (int) $set['set_id'];

@@ -16,9 +16,22 @@ return new class extends Migration
             }
         });
 
-        if (DB::getDriverName() === 'mysql') {
-            DB::statement('UPDATE competition_users cu INNER JOIN competition_details cd ON cd.id = cu.competition_detail_id SET cu.competition_id = cd.competition_id WHERE cu.competition_id IS NULL');
+        if (Schema::hasColumn('competition_users', 'competition_detail_id')) {
+            if (DB::getDriverName() === 'mysql') {
+                DB::statement('UPDATE competition_users cu INNER JOIN competition_details cd ON cd.id = cu.competition_detail_id SET cu.competition_id = cd.competition_id WHERE cu.competition_id IS NULL');
+            } else {
+                DB::table('competition_users')
+                    ->whereNull('competition_id')
+                    ->update([
+                        'competition_id' => DB::table('competition_details')
+                            ->whereColumn('competition_details.id', 'competition_users.competition_detail_id')
+                            ->select('competition_id')
+                            ->limit(1)
+                    ]);
+            }
+        }
 
+        if (DB::getDriverName() === 'mysql') {
             $foreignKeys = collect(DB::select("SELECT CONSTRAINT_NAME FROM information_schema.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'competition_users' AND COLUMN_NAME = 'competition_id' AND REFERENCED_TABLE_NAME = 'competitions'"))
                 ->pluck('CONSTRAINT_NAME')
                 ->all();
@@ -29,15 +42,6 @@ return new class extends Migration
                 });
             }
         } else {
-            DB::table('competition_users')
-                ->whereNull('competition_id')
-                ->update([
-                    'competition_id' => DB::table('competition_details')
-                        ->whereColumn('competition_details.id', 'competition_users.competition_detail_id')
-                        ->select('competition_id')
-                        ->limit(1)
-                ]);
-
             try {
                 Schema::table('competition_users', function (Blueprint $table) {
                     $table->foreign('competition_id')->references('id')->on('competitions')->onDelete('cascade');

@@ -42,7 +42,7 @@ class PersonalInfoController extends Controller
             'organisation_type' => 'required|numeric|exists:organisation_types,id',
             'organisation_id' => 'required|numeric|exists:organisations,id',
             'class' => 'required|string',
-            'hobbies' => 'nullable|string',
+            // 'hobbies' => 'nullable|string',
             'sports_played' => 'nullable|string',
             'guardian_name' => 'required|string',
             'guardian_email' => 'nullable|email',
@@ -106,8 +106,8 @@ class PersonalInfoController extends Controller
             'weight_kg' => 'required|numeric',
             'bmi' => 'required|numeric',
             'gender' => 'required|string',
-            'body_shape' => 'required|string',
-            'required_body_shape' => 'required|string',
+            // 'body_shape' => 'nullable|string',
+            // 'required_body_shape' => 'nullable|string',
             'exercise_type' => 'required|string',
         ]);
 

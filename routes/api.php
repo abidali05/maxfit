@@ -30,6 +30,20 @@ Route::post('vision-test', function (Illuminate\Http\Request $request) {
 
     Route::post('id-scanner', [GoogleVisionController::class, 'idScanner']);
 
+Route::get('cron/clean-incomplete-profiles', function (\Illuminate\Http\Request $request) {
+    if ($request->query('token') !== 'z7kxuLdj7T5k0KNdeEk') {
+        return response()->json(['error' => 'Unauthorized'], 401);
+    }
+
+    \Illuminate\Support\Facades\Artisan::call('app:clean-incomplete-profiles');
+    $output = \Illuminate\Support\Facades\Artisan::output();
+
+    return response()->json([
+        'message' => 'Cron job executed successfully.',
+        'output' => $output
+    ]);
+});
+
 
 
 // ==========================================================================public routes=================================================================
