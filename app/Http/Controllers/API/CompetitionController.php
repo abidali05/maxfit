@@ -281,6 +281,8 @@ class CompetitionController extends Controller
             ];
         });
 
+        $results = $results->sortBy(fn($item) => strtolower($item['user_name'] ?? ''))->values();
+
         $response = [
             'competition'        => $competition,
             'competition_details' => $competition->details ?? collect(),
