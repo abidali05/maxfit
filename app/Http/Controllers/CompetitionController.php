@@ -242,6 +242,14 @@ class CompetitionController extends Controller
             }
         }
 
+        if ($request->has('terms_conditions_file')) {
+            $termsFile = $request->file('terms_conditions_file');
+            if ($termsFile !== null && !($termsFile instanceof \Illuminate\Http\UploadedFile && $termsFile->isValid())) {
+                $request->files->remove('terms_conditions_file');
+                $request->offsetUnset('terms_conditions_file');
+            }
+        }
+
         $rules = [
             'name' => 'required|string|max:255',
             'age_group' => ['required', 'string', 'regex:/^\d+\s*(?:-\s*\d+)?$/'],
@@ -261,6 +269,7 @@ class CompetitionController extends Controller
             'youtube_links.*' => 'nullable|url',
             'has_entry_fee' => 'required|boolean',
             'entry_fee' => 'nullable|numeric|min:0|required_if:has_entry_fee,1',
+            'terms_conditions_file' => 'nullable|file|mimes:jpeg,png,jpg,gif,pdf,doc,docx|max:10240',
         ];
 
         if ($isUpdate) {
@@ -589,6 +598,14 @@ class CompetitionController extends Controller
                 $competition->save();
             }
 
+            if ($request->hasFile('terms_conditions_file')) {
+                $file = $request->file('terms_conditions_file');
+                $filename = time() . '_' . $file->getClientOriginalName();
+                $file->move(public_path('uploads/competitions'), $filename);
+                $competition->terms_conditions_file = 'uploads/competitions/' . $filename;
+                $competition->save();
+            }
+
             $this->syncCompetitionOrganisations($competition, $validated);
             $competition->save();
             $this->syncCompetitionVideos($competition, $request, $validated);
@@ -743,6 +760,17 @@ class CompetitionController extends Controller
                 $filename = time() . '_' . $file->getClientOriginalName();
                 $file->move(public_path('uploads/competitions'), $filename);
                 $competition->competition_image = 'uploads/competitions/' . $filename;
+            }
+
+            if ($request->hasFile('terms_conditions_file')) {
+                if ($competition->terms_conditions_file && file_exists(public_path($competition->terms_conditions_file))) {
+                    @unlink(public_path($competition->terms_conditions_file));
+                }
+
+                $file = $request->file('terms_conditions_file');
+                $filename = time() . '_' . $file->getClientOriginalName();
+                $file->move(public_path('uploads/competitions'), $filename);
+                $competition->terms_conditions_file = 'uploads/competitions/' . $filename;
             }
 
             $competition->fill([

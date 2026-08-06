@@ -65,6 +65,7 @@ class CompetitionController extends Controller
             'org_type' => 'nullable|exists:organisation_types,id',
             'org' => 'nullable|exists:organisations,id',
             'time_allowed' => 'nullable|numeric|min:1',
+            'terms_conditions_file' => 'nullable|file|mimes:jpeg,png,jpg,gif,pdf,doc,docx|max:10240',
             'coach_id' => 'required|array|min:1',
             'coach_id.*' => 'required|string|max:100',
             'cities' => 'required|array|min:1',
@@ -119,6 +120,14 @@ class CompetitionController extends Controller
             ];
 
             $competition = Competition::create($competitionData);
+
+            if ($request->hasFile('terms_conditions_file')) {
+                $file = $request->file('terms_conditions_file');
+                $filename = time() . '_' . $file->getClientOriginalName();
+                $file->move(public_path('uploads/competitions'), $filename);
+                $competition->terms_conditions_file = 'uploads/competitions/' . $filename;
+                $competition->save();
+            }
 
             // Create competition details for each set
             foreach ($validated['coach_id'] as $index => $coach_id) {
@@ -183,11 +192,23 @@ class CompetitionController extends Controller
             'status'        => 'nullable|in:active,inactive',
             'org_type' => 'nullable|exists:organisation_types,id', // Validate
             'org' => 'nullable|exists:organisations,id', // Validate
-            'youtube_links.*' => 'nullable|url'
+            'youtube_links.*' => 'nullable|url',
+            'terms_conditions_file' => 'nullable|file|mimes:jpeg,png,jpg,gif,pdf,doc,docx|max:10240',
         ]);
 
         $youtubeLinks = $request->youtube_links ?? [];
         unset($validated['youtube_links']);
+
+        if ($request->hasFile('terms_conditions_file')) {
+            $competition = $this->competitionOption->get_competition($id);
+            if ($competition->terms_conditions_file && file_exists(public_path($competition->terms_conditions_file))) {
+                @unlink(public_path($competition->terms_conditions_file));
+            }
+            $file = $request->file('terms_conditions_file');
+            $filename = time() . '_' . $file->getClientOriginalName();
+            $file->move(public_path('uploads/competitions'), $filename);
+            $validated['terms_conditions_file'] = 'uploads/competitions/' . $filename;
+        }
 
         $this->competitionOption->update_competition($id, $validated, $youtubeLinks);
 

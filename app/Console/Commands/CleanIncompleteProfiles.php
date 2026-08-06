@@ -45,17 +45,27 @@ class CleanIncompleteProfiles extends Command
         $notifiedCount = 0;
         foreach ($usersToNotify as $user) {
             $missing = $this->getMissingFields($user);
+
             if (!empty($missing)) {
-                $this->line("Notifying user ID {$user->id} ({$user->email}) of missing information.");
-                Log::info("CleanIncompleteProfiles: Notifying user ID {$user->id} ({$user->email}) of missing information: " . implode(', ', $missing));
+                $this->line("Processing reminder for user ID {$user->id} ({$user->email})");
+
                 try {
                     Mail::to($user->email)->send(new ProfileReminderMail($user, $missing));
-                    $user->update(['profile_reminder_sent_at' => now()]);
-                    $notifiedCount++;
+
+                    Log::info("CleanIncompleteProfiles: Reminder email sent successfully to user ID {$user->id}.");
                 } catch (\Throwable $e) {
-                    $this->error("Failed to notify user ID {$user->id}: " . $e->getMessage());
-                    Log::error("CleanIncompleteProfiles: Failed to notify user ID {$user->id}: " . $e->getMessage());
+                    // Log the SMTP failure
+                    Log::error("CleanIncompleteProfiles: Failed to send reminder email to user ID {$user->id}: " . $e->getMessage());
+
+                    $this->error("Failed to send email to user ID {$user->id}, but reminder timestamp will still be recorded.");
                 }
+
+                // IMPORTANT: Always mark reminder as processed
+                $user->update([
+                    'profile_reminder_sent_at' => now(),
+                ]);
+
+                $notifiedCount++;
             }
         }
         $this->info("Sent {$notifiedCount} reminders.");

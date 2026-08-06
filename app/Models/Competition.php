@@ -95,6 +95,19 @@ class Competition extends Model
         return $value;
     }
 
+    public function getTermsConditionsFileAttribute($value)
+    {
+        if (empty($value)) {
+            return null;
+        }
+
+        if (str_starts_with($value, 'http://') || str_starts_with($value, 'https://')) {
+            return $value;
+        }
+
+        return asset($value);
+    }
+
     public function getCountryNameAttribute(): string
     {
         if (empty($this->country)) {

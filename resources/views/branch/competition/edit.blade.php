@@ -123,6 +123,21 @@
                                 @enderror
                             </div>
 
+                            <div class="col-md-12 mb-3">
+                                <label class="form-label">Terms and Conditions File</label>
+                                <input type="file" class="form-control" name="terms_conditions_file" accept="image/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
+                                @if ($competition->terms_conditions_file)
+                                    <div class="mt-2">
+                                        <a href="{{ asset($competition->terms_conditions_file) }}" target="_blank" class="btn btn-sm btn-outline-secondary">
+                                            View Terms & Conditions File
+                                        </a>
+                                    </div>
+                                @endif
+                                @error('terms_conditions_file')
+                                    <span class="text-danger">{{ $message }}</span>
+                                @enderror
+                            </div>
+
                             <div class="col-md-12">
                                 <label class="form-label">YouTube Video Links</label>
                                 <div id="youtube-links-wrapper">

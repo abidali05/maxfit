@@ -142,5 +142,7 @@ Route::prefix('v1')->middleware('auth:sanctum')->group(function () {
     Route::get('/user-result-graph', [ChallengesController::class,'userResultGraph']);
 
     Route::get('/users/{user}/competitions/results', [UserAllCompetitionResultsController::class, 'index']);
+    Route::get('/user/{user_id}/competition-video', [CompetitionController::class, 'getUserCompetitionVideo']);
+    Route::get('/user/{user_id}/competition-videos', [CompetitionController::class, 'getUserCompetitionVideo']);
 
 });

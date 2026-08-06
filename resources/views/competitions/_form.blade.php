@@ -133,6 +133,18 @@
                                 @endif
                                 @error('competition_image')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
                             </div>
+                            <div class="col-md-6 col-xl-4">
+                                <label for="terms_conditions_file">Terms and Conditions File</label>
+                                <input type="file" class="form-control" name="terms_conditions_file" id="terms_conditions_file" accept="image/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
+                                @if ($isEdit && $competition->terms_conditions_file)
+                                    <div class="mt-2">
+                                        <a href="{{ asset($competition->terms_conditions_file) }}" target="_blank" class="btn btn-sm btn-outline-secondary">
+                                            View Terms & Conditions File
+                                        </a>
+                                    </div>
+                                @endif
+                                @error('terms_conditions_file')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
+                            </div>
                             <div class="col-md-12">
                                 <label for="description">Description</label>
                                 <textarea class="form-control" name="description" id="description" rows="4">{{ $competitionDescription }}</textarea>

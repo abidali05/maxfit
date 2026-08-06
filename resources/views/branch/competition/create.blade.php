@@ -112,6 +112,14 @@
                                     <span class="text-danger">{{ $message }}</span>
                                 @enderror
                             </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Terms and Conditions File</label>
+                                <input type="file" class="form-control" name="terms_conditions_file" accept="image/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
+                                @error('terms_conditions_file')
+                                    <span class="text-danger">{{ $message }}</span>
+                                @enderror
+                            </div>
                         </div>
 
                         <!-- Repeatable Competition Fields -->

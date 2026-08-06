@@ -143,7 +143,8 @@ class CompetitionController extends Controller
                 return $competition;
             })
             ->filter(function ($competition) {
-                return strtolower((string) $competition->status_type) !== 'accepted';
+                $status = strtolower((string) $competition->status_type);
+                return $status !== 'accepted' && $status !== 'completed';
             })
             ->values();
 
@@ -282,7 +283,7 @@ class CompetitionController extends Controller
 
         $response = [
             'competition'        => $competition,
-            'competition_details'=> $competition->details ?? collect(),
+            'competition_details' => $competition->details ?? collect(),
             'exercises'          => $exercises,
             'criteria'           => [
                 'genz' => $genzForFilter,
@@ -622,5 +623,42 @@ class CompetitionController extends Controller
             'status' => 'success',
             'data' => $data
         ], 201);
+    }
+
+    public function getUserCompetitionVideo($userId)
+    {
+        $user = \App\Models\User::find($userId);
+        if (!$user) {
+            return $this->notFound('User not found');
+        }
+
+        $videos = CompetitionResultVideo::whereHas('result.competitionUser', function ($query) use ($userId) {
+            $query->where('user_id', $userId);
+        })
+            ->with('result.exercise')
+            ->get();
+
+        $data = $videos->map(function ($video) use ($user) {
+            $exercise = $video->result->exercise ?? null;
+            $exerciseImage = $exercise?->image;
+
+            if ($exerciseImage) {
+                if (!str_starts_with($exerciseImage, 'http://') && !str_starts_with($exerciseImage, 'https://')) {
+                    $exerciseImage = asset('storage/' . ltrim($exerciseImage, '/'));
+                }
+            }
+
+            return [
+                'competition_result_video_id' => $video->id,
+                'name' => $user->name,
+                'photo' => $user->image,
+                'youtube_link' => $video->youtube_link,
+                'exercise_id' => $exercise?->id,
+                'exercise_name' => $exercise?->name,
+                'exercise_image' => $exerciseImage,
+            ];
+        });
+
+        return $this->success($data, 'User competition videos fetched successfully');
     }
 }
