@@ -145,4 +145,9 @@ Route::prefix('v1')->middleware('auth:sanctum')->group(function () {
     Route::get('/user/{user_id}/competition-video', [CompetitionController::class, 'getUserCompetitionVideo']);
     Route::get('/user/{user_id}/competition-videos', [CompetitionController::class, 'getUserCompetitionVideo']);
 
+    // Coach Group Invitations
+    Route::get('/user/groups/requests', [\App\Http\Controllers\API\GroupInvitationController::class, 'getInvitations']);
+    Route::post('/user/groups/respond', [\App\Http\Controllers\API\GroupInvitationController::class, 'respondToInvitation']);
+    Route::get('/user/groups/{id}', [\App\Http\Controllers\API\GroupInvitationController::class, 'getGroupDetails']);
+    Route::post('/user/groups/submit', [\App\Http\Controllers\API\GroupInvitationController::class, 'submitExercises']);
 });

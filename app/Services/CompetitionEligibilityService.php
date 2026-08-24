@@ -76,7 +76,11 @@ class CompetitionEligibilityService
             $countryId = is_numeric($filters['country']) ? (int) $filters['country'] : null;
 
             if ($countryId !== null && $countryId > 0) {
-                $query->whereRaw('CAST(country AS UNSIGNED) = ?', [$countryId]);
+                if (DB::getDriverName() === 'sqlite') {
+                    $query->where('country', $countryId);
+                } else {
+                    $query->whereRaw('CAST(country AS UNSIGNED) = ?', [$countryId]);
+                }
             } else {
                 $query->where('country', (string) $filters['country']);
             }
@@ -104,7 +108,11 @@ class CompetitionEligibilityService
         }
 
         if ($orgIds !== []) {
-            $query->whereIn(DB::raw('CAST(organisation_id AS UNSIGNED)'), $orgIds);
+            if (DB::getDriverName() === 'sqlite') {
+                $query->whereIn('organisation_id', $orgIds);
+            } else {
+                $query->whereIn(DB::raw('CAST(organisation_id AS UNSIGNED)'), $orgIds);
+            }
         }
 
         if (!empty($filters['genz'])) {

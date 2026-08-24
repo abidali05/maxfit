@@ -92,6 +92,33 @@
                 </div>
             </div>
 
+            <div class="sidebar-section">
+                @php
+                    $groupOpen = Route::is('coach.groups.*');
+                @endphp
+                <button type="button"
+                    class="nav-item nav-link sidebar-parent-link {{ $groupOpen ? 'active' : '' }}"
+                    data-bs-toggle="collapse"
+                    data-bs-target="#coachGroups"
+                    aria-expanded="{{ $groupOpen ? 'true' : 'false' }}"
+                    aria-controls="coachGroups">
+                    <span class="sidebar-parent-label">
+                        <i class="fas fa-user-friends me-2"></i>Groups
+                    </span>
+                    <i class="fas fa-chevron-down sidebar-parent-chevron"></i>
+                </button>
+                <div id="coachGroups" class="sidebar-submenu collapse {{ $groupOpen ? 'show' : '' }}">
+                    <a href="{{ route('coach.groups.index') }}" class="nav-item nav-link sidebar-subnav-link {{ Route::is('coach.groups.index') ? 'active' : '' }}">
+                        <i class="fas fa-list me-2"></i>
+                        <span>All Groups</span>
+                    </a>
+                    <a href="{{ route('coach.groups.create') }}" class="nav-item nav-link sidebar-subnav-link {{ Route::is('coach.groups.create') ? 'active' : '' }}">
+                        <i class="fas fa-plus me-2"></i>
+                        <span>Create Group</span>
+                    </a>
+                </div>
+            </div>
+
             {{-- <a href="{{ route('plans.index') }}" class="nav-item nav-link {{ Route::is('plans.*') ? 'active' : '' }}">
                 <i class="fas fa-clipboard-list me-2"></i>Plans
             </a>

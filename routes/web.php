@@ -94,6 +94,11 @@ Route::middleware('auth')->group(function () {
 
     Route::get('app-version', [AppVersionController::class, 'edit'])->name('app-version.edit');
     Route::put('app-version', [AppVersionController::class, 'update'])->name('app-version.update');
+
+    // Admin Groups Routes
+    Route::post('groups/{id}/suspend', [\App\Http\Controllers\Admin\GroupController::class, 'suspend'])->name('groups.suspend');
+    Route::post('groups/{id}/unsuspend', [\App\Http\Controllers\Admin\GroupController::class, 'unsuspend'])->name('groups.unsuspend');
+    Route::resource('groups', \App\Http\Controllers\Admin\GroupController::class)->only(['index', 'show']);
 });
 
 
@@ -115,6 +120,12 @@ Route::middleware('auth:coach')->prefix('coach')->as('coach.')->group(function (
     Route::post('/logout', [CoachAuthController::class, 'logout'])->name('logout');
     Route::get('/profile', [ProfileController::class, 'profile'])->name('profile');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+
+    // Groups Routes
+    Route::get('groups/organizations-by-types', [\App\Http\Controllers\Coach\GroupController::class, 'getOrganizationsByTypes'])->name('groups.organizations-by-types');
+    Route::get('groups/get-eligible-users', [\App\Http\Controllers\Coach\GroupController::class, 'getEligibleUsers'])->name('groups.eligible-users');
+    Route::post('groups/{id}/assign-exercises', [\App\Http\Controllers\Coach\GroupController::class, 'assignExercises'])->name('groups.assign-exercises');
+    Route::resource('groups', \App\Http\Controllers\Coach\GroupController::class)->except(['destroy']);
 });
 
 Route::middleware('auth:branch')->prefix('branch')->as('branch.')->group(function () {

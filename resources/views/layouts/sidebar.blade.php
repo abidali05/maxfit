@@ -41,6 +41,10 @@
                 <i class="fas fa-running me-2"></i>Venues
             </a>
 
+            <a href="{{ route('groups.index') }}" class="nav-item nav-link {{ Route::is('groups.*') ? 'active' : '' }}">
+                <i class="fas fa-user-friends me-2"></i>Groups
+            </a>
+
             <div class="sidebar-section">
                 <button type="button"
                     class="nav-item nav-link sidebar-parent-link {{ $orgOpen ? 'active' : '' }}"
