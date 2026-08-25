@@ -5,10 +5,12 @@
         <!-- Row 1: Details & Athletes -->
         <div class="row g-4 mb-4">
             <div class="col-md-4">
-                <div class="bg-light rounded p-4 h-100">
                     <div class="d-flex align-items-center justify-content-between mb-4 border-bottom pb-2">
                         <h5 class="mb-0">Group Information</h5>
-                        <a href="{{ route('coach.groups.edit', $group->id) }}" class="btn btn-primary btn-sm"><i class="fa fa-edit me-1"></i>Edit Group</a>
+                        <div class="d-flex gap-1">
+                            <a href="{{ route('coach.reports.index', ['group_id' => $group->id]) }}" class="btn btn-outline-primary btn-sm"><i class="fa fa-chart-line me-1"></i>Report</a>
+                            <a href="{{ route('coach.groups.edit', $group->id) }}" class="btn btn-primary btn-sm"><i class="fa fa-edit me-1"></i>Edit</a>
+                        </div>
                     </div>
                     <div class="mb-3">
                         <label class="text-muted d-block small">Group Name</label>
@@ -49,7 +51,7 @@
                     @endif
                     @if($group->country)
                         <div class="mb-2">
-                            <span class="badge bg-secondary">Country: {{ $group->country }}</span>
+                            <span class="badge bg-secondary">Country: {{ $group->countryRelation->name ?? $group->country }}</span>
                         </div>
                     @endif
                 </div>

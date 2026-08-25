@@ -59,12 +59,13 @@
 
                             <div class="col-md-6 col-lg-4">
                                 <label for="genz" class="form-label fw-bold">GenZ Category Filter</label>
-                                <select class="form-select filter-input" name="genz" id="genz">
-                                    <option value="">Select Category</option>
-                                    <option value="fatherfits">Father Fit</option>
-                                    <option value="motherfits">Mother Fit</option>
-                                    <option value="both">Both</option>
+                                <select class="form-select filter-input" id="genz" disabled style="background-color: #e9ecef; cursor: not-allowed;">
+                                    <option value="">Auto-selected from Age Group</option>
+                                    <option value="fatherfits" {{ old('genz') === 'fatherfits' ? 'selected' : '' }}>Father Fit</option>
+                                    <option value="motherfits" {{ old('genz') === 'motherfits' ? 'selected' : '' }}>Mother Fit</option>
+                                    <option value="both" {{ old('genz') === 'both' ? 'selected' : '' }}>Both</option>
                                 </select>
+                                <input type="hidden" name="genz" id="genz_hidden" value="{{ old('genz') }}">
                                 @error('genz')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
                             </div>
 
@@ -169,12 +170,45 @@
                 .catch(err => console.error('Failed loading organizations:', err));
             });
 
+            function parseAgeGroup(value) {
+                const text = String(value || "").trim();
+                if (!text) return null;
+                const parts = text.split("-").map(p => p.trim()).filter(Boolean);
+                if (parts.length === 1) {
+                    const age = parseInt(parts[0], 10);
+                    return Number.isFinite(age) && age > 0 ? { min: age, max: age } : null;
+                }
+                if (parts.length === 2) {
+                    const min = parseInt(parts[0], 10);
+                    const max = parseInt(parts[1], 10);
+                    if (Number.isFinite(min) && Number.isFinite(max) && min > 0 && max > 0 && min <= max) {
+                        return { min, max };
+                    }
+                }
+                return null;
+            }
+
+            function autoSelectGenz() {
+                const parsed = parseAgeGroup($('#age_group').val());
+                let inferred = '';
+                if (parsed) {
+                    inferred = parsed.max < 14 ? 'motherfits' : 'fatherfits';
+                }
+                $('#genz').val(inferred);
+                $('#genz_hidden').val(inferred);
+            }
+
+            $('#age_group').on('input change', function () {
+                autoSelectGenz();
+            });
+
             // Listen to any filter changes to load matching athletes
             $('.filter-input, #org').on('change input', function () {
                 updateEligibleUsers();
             });
 
             // Trigger initial loading
+            autoSelectGenz();
             updateEligibleUsers();
 
             function updateEligibleUsers() {
@@ -182,7 +216,7 @@
                 const country = $('#country').val();
                 const orgTypes = $('#org_type').val() || [];
                 const orgs = $('#org').val() || [];
-                const genz = $('#genz').val();
+                const genz = $('#genz_hidden').val() || $('#genz').val();
                 const gender = $('#gender').val();
 
                 const params = new URLSearchParams();

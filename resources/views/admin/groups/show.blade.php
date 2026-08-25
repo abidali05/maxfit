@@ -49,7 +49,7 @@
                     @endif
                     @if($group->country)
                         <div class="mb-2">
-                            <span class="badge bg-secondary">Country: {{ $group->country }}</span>
+                            <span class="badge bg-secondary">Country: {{ $group->countryRelation->name ?? $group->country }}</span>
                         </div>
                     @endif
 

@@ -2,7 +2,7 @@
     <nav class="navbar bg-light navbar-light">
         @php
             $orgOpen = Route::is('organisation-types.*') || Route::is('organisations.*');
-            $exerciseOpen = Route::is('exercises.*') || Route::is('exercise-categories.*');
+            $exerciseOpen = Route::is('exercises.*') || Route::is('exercise-categories.*') || Route::is('exercise-groups.*');
             $competitionOpen = Route::is('competitions.*') || Route::is('competition-users.*') || Route::is('competition-details.*') || Route::is('results.*');
         @endphp
         <a href="{{ url('/') }}" class="mx-4 mb-3 navbar-brand">
@@ -89,6 +89,10 @@
                     <a href="{{ route('exercise-categories.index') }}" class="nav-item nav-link sidebar-subnav-link {{ Route::is('exercise-categories.*') ? 'active' : '' }}">
                         <i class="fas fa-tags me-2"></i>
                         <span>Categories</span>
+                    </a>
+                    <a href="{{ route('exercise-groups.index') }}" class="nav-item nav-link sidebar-subnav-link {{ Route::is('exercise-groups.*') ? 'active' : '' }}">
+                        <i class="fas fa-layer-group me-2"></i>
+                        <span>Exercise Groups</span>
                     </a>
                 </div>
             </div>

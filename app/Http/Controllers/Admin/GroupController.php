@@ -21,7 +21,7 @@ class GroupController extends Controller
 
     public function show($id)
     {
-        $group = Group::with(['groupUsers.user', 'coach', 'groupExercises.exercise'])
+        $group = Group::with(['groupUsers.user', 'coach', 'groupExercises.exercise', 'countryRelation'])
             ->findOrFail($id);
 
         return view('admin.groups.show', compact('group'));

@@ -6,9 +6,11 @@
             <div class="col-sm-12 col-xl-12">
                 <div class="bg-light text-center rounded p-4">
                     <div class="d-flex align-items-center justify-content-between mb-4">
-                        <h6 class="mb-0">Exercise Categories</h6>
-                        <a href="{{ route('exercises.create') }}" class="btn btn-primary">Add New
-                            </a>
+                        <h6 class="mb-0">Exercises</h6>
+                        <div class="d-flex gap-2">
+                            <a href="{{ route('exercise-groups.index') }}" class="btn btn-outline-primary"><i class="fa fa-layer-group me-1"></i>Exercise Groups</a>
+                            <a href="{{ route('exercises.create') }}" class="btn btn-primary"><i class="fa fa-plus me-1"></i>Add New</a>
+                        </div>
                     </div>
                     <div class="table-responsive">
                         <table class="table text-start align-middle table-bordered  mb-0 datatable">

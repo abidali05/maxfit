@@ -57,6 +57,7 @@ Route::middleware('auth')->group(function () {
     Route::resource('exercise-assessment', ExerciseAssessmentController::class);
     Route::resource('exercise-categories', ExerciseCategoryController::class);
     Route::resource('exercises', ExerciseController::class);
+    Route::resource('exercise-groups', \App\Http\Controllers\Admin\ExerciseGroupController::class);
     Route::resource('plan-questions', PlanQuestionController::class);
     Route::get('competitions/available-users-count', [CompetitionController::class, 'availableUsersCount'])->name('competitions.available-users-count');
     Route::get('competitions/organizations-by-types', [CompetitionController::class, 'getOrganizationsByTypes'])->name('competitions.organizations-by-types');
@@ -126,6 +127,10 @@ Route::middleware('auth:coach')->prefix('coach')->as('coach.')->group(function (
     Route::get('groups/get-eligible-users', [\App\Http\Controllers\Coach\GroupController::class, 'getEligibleUsers'])->name('groups.eligible-users');
     Route::post('groups/{id}/assign-exercises', [\App\Http\Controllers\Coach\GroupController::class, 'assignExercises'])->name('groups.assign-exercises');
     Route::resource('groups', \App\Http\Controllers\Coach\GroupController::class)->except(['destroy']);
+
+    // Exercise Reports
+    Route::get('reports', [\App\Http\Controllers\Coach\ReportController::class, 'index'])->name('reports.index');
+    Route::get('reports/export-csv', [\App\Http\Controllers\Coach\ReportController::class, 'exportCsv'])->name('reports.export-csv');
 });
 
 Route::middleware('auth:branch')->prefix('branch')->as('branch.')->group(function () {

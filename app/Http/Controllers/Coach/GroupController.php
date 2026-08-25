@@ -166,7 +166,7 @@ class GroupController extends Controller
     {
         $coachId = Auth::guard('coach')->id();
         $group = Group::where('coach_id', $coachId)
-            ->with(['groupUsers.user', 'coach', 'groupExercises.exercise'])
+            ->with(['groupUsers.user', 'coach', 'groupExercises.exercise', 'countryRelation'])
             ->findOrFail($id);
 
         $exercises = \App\Models\Exercise::orderBy('name')->get();

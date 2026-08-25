@@ -45,4 +45,9 @@ class Group extends Model
     {
         return $this->hasMany(GroupExercise::class);
     }
+
+    public function countryRelation()
+    {
+        return $this->belongsTo(Country::class, 'country', 'id');
+    }
 }

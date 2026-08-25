@@ -119,6 +119,10 @@
                 </div>
             </div>
 
+            <a href="{{ route('coach.reports.index') }}" class="nav-item nav-link {{ Route::is('coach.reports.*') ? 'active' : '' }}">
+                <i class="fas fa-chart-line me-2"></i>Reports
+            </a>
+
             {{-- <a href="{{ route('plans.index') }}" class="nav-item nav-link {{ Route::is('plans.*') ? 'active' : '' }}">
                 <i class="fas fa-clipboard-list me-2"></i>Plans
             </a>

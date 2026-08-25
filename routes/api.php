@@ -73,6 +73,10 @@ Route::prefix('v1')->group(function () {
     // ID card scanning
     Route::post('id-card/scan', [IdCardController::class, 'scan']);
     Route::get('app-version', [AppVersionController::class, 'show']);
+
+    // Popular Exercise Groups
+    Route::get('/exercise-groups', [\App\Http\Controllers\API\ExerciseGroupController::class, 'getPopularExerciseGroups']);
+    Route::get('/popular-exercises', [\App\Http\Controllers\API\ExerciseGroupController::class, 'getPopularExerciseGroups']);
     // Route::get('/get-all-users/{id}', [ExercisesController::class, 'getAllUsers']);
 
 });
