@@ -8,6 +8,11 @@ class ExerciseGroup extends Model
 {
     protected $guarded = [];
 
+    public function subGroups()
+    {
+        return $this->hasMany(ExerciseSubGroup::class, 'exercise_group_id')->orderBy('order')->orderBy('id', 'asc');
+    }
+
     public function items()
     {
         return $this->hasMany(ExerciseGroupItem::class, 'exercise_group_id')->orderBy('order');

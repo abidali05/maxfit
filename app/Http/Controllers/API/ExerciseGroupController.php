@@ -4,7 +4,7 @@ namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
 use App\Models\ExerciseGroup;
-use App\Models\Exercise;
+use App\Models\ExerciseSubGroup;
 use Illuminate\Http\Request;
 
 class ExerciseGroupController extends Controller
@@ -12,6 +12,9 @@ class ExerciseGroupController extends Controller
     public function getPopularExerciseGroups(Request $request)
     {
         $allGroups = ExerciseGroup::where('status', 'active')
+            ->with(['subGroups' => function ($q) {
+                $q->where('status', 'active')->orderBy('order')->orderBy('id', 'asc');
+            }])
             ->orderBy('id', 'asc')
             ->get();
 
@@ -19,6 +22,8 @@ class ExerciseGroupController extends Controller
             return $this->success([
                 'groups' => [],
                 'selected_group' => null,
+                'sub_groups' => [],
+                'selected_sub_group' => null,
                 'exercises' => [
                     'current_page' => 1,
                     'data' => [],
@@ -29,7 +34,7 @@ class ExerciseGroupController extends Controller
             ], 'No exercise groups available');
         }
 
-        // Determine selected group: requested group_id or default to 1st group
+        // 1. Determine selected group: requested group_id or default to 1st group
         $requestedGroupId = $request->input('group_id');
         $selectedGroup = $requestedGroupId 
             ? $allGroups->firstWhere('id', (int)$requestedGroupId) 
@@ -39,80 +44,110 @@ class ExerciseGroupController extends Controller
             $selectedGroup = $allGroups->first();
         }
 
-        $perPage = (int) $request->input('per_page', 15);
-        if ($perPage <= 0 || $perPage > 100) {
-            $perPage = 15;
+        // 2. Determine Sub-Groups for the selected group
+        $subGroups = $selectedGroup->subGroups ?? collect();
+
+        // 3. Determine selected sub-group: requested sub_group_id or default to 1st sub-group of selected group
+        $requestedSubGroupId = $request->input('sub_group_id');
+        $selectedSubGroup = null;
+
+        if ($subGroups->isNotEmpty()) {
+            $selectedSubGroup = $requestedSubGroupId
+                ? $subGroups->firstWhere('id', (int)$requestedSubGroupId)
+                : $subGroups->first();
+
+            if (!$selectedSubGroup) {
+                $selectedSubGroup = $subGroups->first();
+            }
         }
 
-        // Paginate exercises belonging to the selected group
-        $exercisesPaginator = $selectedGroup->exercises()
-            ->with('exercise_category')
-            ->paginate($perPage);
+        // 4. Paginate exercises of the selected sub-group
+        $perPage = (int)$request->input('per_page', 15);
+        $perPage = ($perPage > 0 && $perPage <= 100) ? $perPage : 15;
 
-        // Transform groups list for horizontal tabs
+        if ($selectedSubGroup) {
+            $paginatedExercises = $selectedSubGroup->exercises()
+                ->with(['exercise_category'])
+                ->paginate($perPage);
+
+            $exercisesCollection = $paginatedExercises->getCollection();
+            $currentPage = $paginatedExercises->currentPage();
+            $startingNumber = ($currentPage - 1) * $perPage + 1;
+
+            $transformedExercises = $exercisesCollection->map(function ($exercise, $index) use ($startingNumber) {
+                $exerciseType = $exercise->exercise_type ?? 'count';
+                $videoTime = $exercise->video_time ?? ($exerciseType === 'sec' ? '30 sec' : '10 reps');
+
+                return [
+                    'item_number' => $startingNumber + $index,
+                    'id' => $exercise->id,
+                    'name' => $exercise->name,
+                    'category' => $exercise->exercise_category->name ?? 'N/A',
+                    'description' => $exercise->description ?? '',
+                    'fitness_level' => $exercise->fitness_level ?? 'N/A',
+                    'exercise_type' => $exerciseType,
+                    'duration_or_reps' => $videoTime,
+                    'image' => $exercise->image ? url('storage/' . $exercise->image) : asset('assets/images/user.jpg'),
+                    'youtube_link' => $exercise->youtube_link ?? null,
+                ];
+            });
+
+            $paginatedExercises->setCollection($transformedExercises);
+            $exercisesData = $paginatedExercises;
+        } else {
+            $exercisesData = [
+                'current_page' => 1,
+                'data' => [],
+                'total' => 0,
+                'per_page' => $perPage,
+                'last_page' => 1,
+            ];
+        }
+
+        // Format Groups list for UI tabs
         $groupsData = $allGroups->map(function ($grp) use ($selectedGroup) {
             return [
                 'id' => $grp->id,
                 'name' => $grp->name,
-                'sub_title' => $grp->sub_title ?? 'Popular by Sport',
+                'sub_title' => $grp->sub_title ?? '',
                 'image' => $grp->image ? url('storage/' . $grp->image) : null,
                 'icon' => $grp->icon ?? 'fa-dumbbell',
-                'is_selected' => ($grp->id === $selectedGroup->id),
+                'is_selected' => $grp->id === $selectedGroup->id,
             ];
         });
 
-        // Transform paginated exercises
-        $exercisesData = $exercisesPaginator->getCollection()->map(function ($exercise, $index) use ($exercisesPaginator) {
-            // Determine duration / reps label
-            $durationOrReps = $exercise->video_time ?: null;
-            if (!$durationOrReps) {
-                if ($exercise->exercise_type === 'sec' || $exercise->exercise_type === 'seconds') {
-                    $durationOrReps = '30 sec';
-                } else {
-                    $durationOrReps = '12 reps';
-                }
-            }
-
+        // Format Sub-Groups list for UI sub-tabs
+        $subGroupsData = $subGroups->map(function ($sg) use ($selectedSubGroup) {
             return [
-                'item_number' => (($exercisesPaginator->currentPage() - 1) * $exercisesPaginator->perPage()) + $index + 1,
-                'id' => $exercise->id,
-                'name' => $exercise->name,
-                'category' => $exercise->exercise_category->name ?? 'Exercise',
-                'description' => $exercise->description ?? '',
-                'fitness_level' => $exercise->fitness_level ?? 'All Levels',
-                'exercise_type' => $exercise->exercise_type ?? 'count',
-                'duration_or_reps' => $durationOrReps,
-                'image' => $exercise->image ? url('storage/' . $exercise->image) : asset('assets/images/user.jpg'),
-                'youtube_link' => $exercise->youtube_link ?? null,
+                'id' => $sg->id,
+                'name' => $sg->name,
+                'sub_title' => $sg->sub_title ?? '',
+                'image' => $sg->image ? url('storage/' . $sg->image) : null,
+                'is_selected' => $selectedSubGroup && ($sg->id === $selectedSubGroup->id),
             ];
         });
 
-        $paginatedResponse = [
-            'current_page' => $exercisesPaginator->currentPage(),
-            'data' => $exercisesData,
-            'first_page_url' => $exercisesPaginator->url(1),
-            'from' => $exercisesPaginator->firstItem(),
-            'last_page' => $exercisesPaginator->lastPage(),
-            'last_page_url' => $exercisesPaginator->url($exercisesPaginator->lastPage()),
-            'next_page_url' => $exercisesPaginator->nextPageUrl(),
-            'path' => $exercisesPaginator->path(),
-            'per_page' => $exercisesPaginator->perPage(),
-            'prev_page_url' => $exercisesPaginator->previousPageUrl(),
-            'to' => $exercisesPaginator->lastItem(),
-            'total' => $exercisesPaginator->total(),
-        ];
-
-        return $this->success([
+        $responseData = [
             'groups' => $groupsData,
             'selected_group' => [
                 'id' => $selectedGroup->id,
                 'name' => $selectedGroup->name,
-                'sub_title' => $selectedGroup->sub_title ?? 'Popular by Sport',
+                'sub_title' => $selectedGroup->sub_title ?? '',
                 'image' => $selectedGroup->image ? url('storage/' . $selectedGroup->image) : null,
                 'icon' => $selectedGroup->icon ?? 'fa-dumbbell',
-                'total_items' => $exercisesPaginator->total(),
+                'total_sub_groups' => $subGroups->count(),
             ],
-            'exercises' => $paginatedResponse,
-        ], 'Popular exercises fetched successfully');
+            'sub_groups' => $subGroupsData,
+            'selected_sub_group' => $selectedSubGroup ? [
+                'id' => $selectedSubGroup->id,
+                'name' => $selectedSubGroup->name,
+                'sub_title' => $selectedSubGroup->sub_title ?? '',
+                'image' => $selectedSubGroup->image ? url('storage/' . $selectedSubGroup->image) : null,
+                'total_items' => $selectedSubGroup->exercises()->count(),
+            ] : null,
+            'exercises' => $exercisesData,
+        ];
+
+        return $this->success($responseData, 'Popular exercises fetched successfully');
     }
 }

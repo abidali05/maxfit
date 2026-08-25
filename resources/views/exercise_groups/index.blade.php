@@ -7,8 +7,8 @@
                 <div class="bg-light rounded p-4">
                     <div class="d-flex align-items-center justify-content-between mb-4 border-bottom pb-2">
                         <div>
-                            <h5 class="mb-1 text-dark fw-bold"><i class="fa fa-layer-group text-primary me-2"></i>Exercise Groups (Sports / Workouts)</h5>
-                            <small class="text-muted">Manage exercise collections by sport, difficulty, or custom workouts for mobile discovery.</small>
+                            <h5 class="mb-1 text-dark fw-bold"><i class="fa fa-layer-group text-primary me-2"></i>Exercise Groups (Sports / Categories)</h5>
+                            <small class="text-muted">Manage sports & workout categories and assign exercises through sub-groups (e.g. Cricket &rarr; Batsman / Bowler).</small>
                         </div>
                         <div class="d-flex gap-2">
                             <a href="{{ route('exercises.index') }}" class="btn btn-outline-secondary btn-sm"><i class="fa fa-dumbbell me-1"></i>All Exercises</a>
@@ -24,9 +24,9 @@
                                     <th scope="col">Group Image / Icon</th>
                                     <th scope="col">Group Name</th>
                                     <th scope="col">Tagline / Subtitle</th>
-                                    <th scope="col">Total Exercises</th>
+                                    <th scope="col">Sub-Groups</th>
                                     <th scope="col">Status</th>
-                                    <th scope="col" class="text-end" style="width: 100px;">Action</th>
+                                    <th scope="col" class="text-end" style="width: 140px;">Action</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -42,9 +42,17 @@
                                                 </div>
                                             @endif
                                         </td>
-                                        <td class="fw-bold fs-6 text-dark">{{ $group->name }}</td>
+                                        <td>
+                                            <a href="{{ route('exercise-groups.show', $group->id) }}" class="fw-bold fs-6 text-primary text-decoration-none">
+                                                {{ $group->name }}
+                                            </a>
+                                        </td>
                                         <td class="text-muted">{{ $group->sub_title ?? 'N/A' }}</td>
-                                        <td><span class="badge bg-info text-dark fs-6">{{ $group->exercises_count }} exercises</span></td>
+                                        <td>
+                                            <a href="{{ route('exercise-groups.show', $group->id) }}" class="btn btn-sm btn-outline-primary">
+                                                <i class="fa fa-sitemap me-1"></i>{{ $group->sub_groups_count }} Sub-Groups
+                                            </a>
+                                        </td>
                                         <td>
                                             @if($group->status === 'active')
                                                 <span class="badge bg-success">Active</span>
@@ -53,7 +61,10 @@
                                             @endif
                                         </td>
                                         <td class="text-end">
-                                            <a href="{{ route('exercise-groups.edit', $group->id) }}" class="btn btn-sm btn-outline-primary me-1" title="Edit">
+                                            <a href="{{ route('exercise-groups.show', $group->id) }}" class="btn btn-sm btn-info text-white me-1" title="Manage Sub-Groups">
+                                                <i class="fa fa-sitemap"></i>
+                                            </a>
+                                            <a href="{{ route('exercise-groups.edit', $group->id) }}" class="btn btn-sm btn-outline-primary me-1" title="Edit Group">
                                                 <i class="fa fa-edit"></i>
                                             </a>
                                             <a href="#" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteModal{{ $group->id }}" title="Delete">
@@ -71,7 +82,7 @@
                                                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                                                 </div>
                                                 <div class="modal-body">
-                                                    Are you sure you want to delete the group <strong>"{{ $group->name }}"</strong>?
+                                                    Are you sure you want to delete <strong>"{{ $group->name }}"</strong> and all its sub-groups?
                                                 </div>
                                                 <div class="modal-footer">
                                                     <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>

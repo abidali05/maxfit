@@ -273,7 +273,7 @@ class GroupController extends Controller
             'assignments.*.exercise_ids' => 'required|array|min:1',
             'assignments.*.exercise_ids.*' => 'required|exists:exercises,id',
             'assignments.*.start_date' => 'required|date',
-            'assignments.*.end_date' => 'required|date|after_or_equal:assignments.*.start_date',
+            'assignments.*.end_date' => 'nullable|date',
         ]);
 
         DB::beginTransaction();
@@ -282,12 +282,18 @@ class GroupController extends Controller
 
             $assignments = $request->input('assignments', []);
             foreach ($assignments as $assign) {
+                $startDate = $assign['start_date'];
+                $endDate = !empty($assign['end_date']) ? $assign['end_date'] : $startDate;
+                if ($endDate < $startDate) {
+                    $endDate = $startDate;
+                }
+
                 $exerciseIds = $assign['exercise_ids'] ?? [];
                 foreach ($exerciseIds as $exerciseId) {
                     $group->groupExercises()->create([
                         'exercise_id' => $exerciseId,
-                        'start_date' => $assign['start_date'],
-                        'end_date' => $assign['end_date'],
+                        'start_date' => $startDate,
+                        'end_date' => $endDate,
                     ]);
                 }
             }

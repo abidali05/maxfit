@@ -3,7 +3,8 @@
 use App\Models\Exercise;
 use App\Models\ExerciseCategory;
 use App\Models\ExerciseGroup;
-use App\Models\ExerciseGroupItem;
+use App\Models\ExerciseSubGroup;
+use App\Models\ExerciseSubGroupItem;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -29,15 +30,27 @@ beforeEach(function () {
             $table->string('image')->nullable();
             $table->string('icon')->nullable();
             $table->string('status')->default('active');
+            $table->timestamps();
+        });
+    }
+
+    if (!Schema::hasTable('exercise_sub_groups')) {
+        Schema::create('exercise_sub_groups', function ($table) {
+            $table->id();
+            $table->unsignedBigInteger('exercise_group_id');
+            $table->string('name');
+            $table->string('sub_title')->nullable();
+            $table->string('image')->nullable();
+            $table->string('status')->default('active');
             $table->integer('order')->default(0);
             $table->timestamps();
         });
     }
 
-    if (!Schema::hasTable('exercise_group_items')) {
-        Schema::create('exercise_group_items', function ($table) {
+    if (!Schema::hasTable('exercise_sub_group_items')) {
+        Schema::create('exercise_sub_group_items', function ($table) {
             $table->id();
-            $table->unsignedBigInteger('exercise_group_id');
+            $table->unsignedBigInteger('exercise_sub_group_id');
             $table->unsignedBigInteger('exercise_id');
             $table->integer('order')->default(0);
             $table->timestamps();
@@ -80,7 +93,7 @@ beforeEach(function () {
     }
 });
 
-test('admin can manage exercise groups with exercise ordering', function () {
+test('admin can manage exercise groups and sub-groups with exercise ordering', function () {
     $admin = User::factory()->create(['role' => 'admin']);
 
     $exercise1 = Exercise::create([
@@ -96,7 +109,7 @@ test('admin can manage exercise groups with exercise ordering', function () {
     $exercise2 = Exercise::create([
         'id' => 2,
         'exercise_category_id' => 1,
-        'name' => 'Fast Bowler Run-Up Drill',
+        'name' => 'Power Drive Drill',
         'genz' => 'both',
         'exercise_type' => 'reps',
         'fitness_level' => 'Intermediate',
@@ -107,85 +120,120 @@ test('admin can manage exercise groups with exercise ordering', function () {
     $response = $this->actingAs($admin)
         ->get(route('exercise-groups.index'));
     $response->assertOk()
-        ->assertViewIs('exercise_groups.index')
-        ->assertDontSee('Order'); // Group order column removed
+        ->assertViewIs('exercise_groups.index');
 
-    // 2. View Create Form
-    $response = $this->actingAs($admin)
-        ->get(route('exercise-groups.create'));
-    $response->assertOk()
-        ->assertViewIs('exercise_groups.create')
-        ->assertSee('Batting Stance Hold')
-        ->assertSee('Fast Bowler Run-Up Drill')
-        ->assertSee('Selected Order');
-
-    // 3. Store new group with specific exercise ordering (exercise 2 first, then exercise 1)
+    // 2. Create new Main Group
     $response = $this->actingAs($admin)
         ->post(route('exercise-groups.store'), [
             'name' => 'Cricket',
             'sub_title' => 'Popular by Sport',
             'status' => 'active',
+        ]);
+
+    $group = ExerciseGroup::where('name', 'Cricket')->first();
+    expect($group)->not->toBeNull();
+    $response->assertRedirect(route('exercise-groups.show', $group->id));
+
+    // 3. View Group Show Page
+    $response = $this->actingAs($admin)
+        ->get(route('exercise-groups.show', $group->id));
+    $response->assertOk()
+        ->assertViewIs('exercise_groups.show')
+        ->assertSee('Cricket');
+
+    // 4. View Create Sub-Group Form
+    $response = $this->actingAs($admin)
+        ->get(route('exercise-sub-groups.create', ['group_id' => $group->id]));
+    $response->assertOk()
+        ->assertViewIs('exercise_sub_groups.create')
+        ->assertSee('Batting Stance Hold');
+
+    // 5. Store Sub-Group with ordered exercises (exercise 2 first, then exercise 1)
+    $response = $this->actingAs($admin)
+        ->post(route('exercise-sub-groups.store'), [
+            'exercise_group_id' => $group->id,
+            'name' => 'Batsman',
+            'sub_title' => 'Batting Skills & Technique',
+            'status' => 'active',
             'exercise_ids' => [2, 1],
         ]);
 
-    $response->assertRedirect(route('exercise-groups.index'));
-    $this->assertDatabaseHas('exercise_groups', [
-        'name' => 'Cricket',
-        'sub_title' => 'Popular by Sport',
-    ]);
-    
-    // Assert order preserved in items
-    $this->assertDatabaseHas('exercise_group_items', [
-        'exercise_id' => 2,
-        'order' => 0,
-    ]);
-    $this->assertDatabaseHas('exercise_group_items', [
-        'exercise_id' => 1,
-        'order' => 1,
+    $response->assertRedirect(route('exercise-groups.show', $group->id));
+    $this->assertDatabaseHas('exercise_sub_groups', [
+        'exercise_group_id' => $group->id,
+        'name' => 'Batsman',
     ]);
 
-    $group = ExerciseGroup::where('name', 'Cricket')->first();
-    expect($group->exercises->pluck('id')->all())->toEqual([2, 1]);
+    $subGroup = ExerciseSubGroup::where('name', 'Batsman')->first();
+    expect($subGroup->exercises->pluck('id')->all())->toEqual([2, 1]);
 
-    // 4. Edit group
+    // 6. Edit Sub-Group
     $response = $this->actingAs($admin)
-        ->get(route('exercise-groups.edit', $group->id));
+        ->get(route('exercise-sub-groups.edit', $subGroup->id));
     $response->assertOk()
-        ->assertViewIs('exercise_groups.edit');
+        ->assertViewIs('exercise_sub_groups.edit');
 
-    // 5. Update group
+    // 7. Update Sub-Group
     $response = $this->actingAs($admin)
-        ->put(route('exercise-groups.update', $group->id), [
-            'name' => 'Cricket Updated',
-            'sub_title' => 'Special Sport Edition',
+        ->put(route('exercise-sub-groups.update', $subGroup->id), [
+            'name' => 'Batsman Elite',
+            'sub_title' => 'Advanced Batting Drills',
             'status' => 'active',
             'exercise_ids' => [1],
         ]);
 
-    $response->assertRedirect(route('exercise-groups.index'));
-    $this->assertDatabaseHas('exercise_groups', [
-        'id' => $group->id,
-        'name' => 'Cricket Updated',
+    $response->assertRedirect(route('exercise-groups.show', $group->id));
+    $this->assertDatabaseHas('exercise_sub_groups', [
+        'id' => $subGroup->id,
+        'name' => 'Batsman Elite',
     ]);
-    $this->assertDatabaseMissing('exercise_group_items', [
-        'exercise_group_id' => $group->id,
+    $this->assertDatabaseMissing('exercise_sub_group_items', [
+        'exercise_sub_group_id' => $subGroup->id,
         'exercise_id' => 2,
     ]);
 });
 
-test('mobile API returns popular exercise groups with default 1st group, pagination, and exact exercise order', function () {
-    $group1 = ExerciseGroup::create([
+test('mobile API returns groups, sub-groups, auto-selects 1st sub-group, and supports query params', function () {
+    // Create Main Group 1: Cricket
+    $cricket = ExerciseGroup::create([
         'name' => 'Cricket',
         'sub_title' => 'Popular by Sport',
         'status' => 'active',
     ]);
 
-    $group2 = ExerciseGroup::create([
+    // Create Sub-Groups for Cricket: Batsman (1st) and Bowler (2nd)
+    $batsman = ExerciseSubGroup::create([
+        'exercise_group_id' => $cricket->id,
+        'name' => 'Batsman',
+        'sub_title' => 'Batting drills',
+        'status' => 'active',
+        'order' => 0,
+    ]);
+
+    $bowler = ExerciseSubGroup::create([
+        'exercise_group_id' => $cricket->id,
+        'name' => 'Bowler',
+        'sub_title' => 'Bowling drills',
+        'status' => 'active',
+        'order' => 1,
+    ]);
+
+    // Create Main Group 2: Football
+    $football = ExerciseGroup::create([
         'name' => 'Football',
         'sub_title' => 'Popular by Sport',
         'status' => 'active',
     ]);
 
+    $striker = ExerciseSubGroup::create([
+        'exercise_group_id' => $football->id,
+        'name' => 'Striker',
+        'sub_title' => 'Finishing drills',
+        'status' => 'active',
+        'order' => 0,
+    ]);
+
+    // Exercises
     $ex1 = Exercise::create([
         'id' => 101,
         'exercise_category_id' => 1,
@@ -206,11 +254,11 @@ test('mobile API returns popular exercise groups with default 1st group, paginat
         'video_time' => '12 reps',
     ]);
 
-    // Insert ex2 first (order 0), then ex1 (order 1)
-    ExerciseGroupItem::create(['exercise_group_id' => $group1->id, 'exercise_id' => 102, 'order' => 0]);
-    ExerciseGroupItem::create(['exercise_group_id' => $group1->id, 'exercise_id' => 101, 'order' => 1]);
+    // Assign ex1 to Batsman, ex2 to Bowler
+    ExerciseSubGroupItem::create(['exercise_sub_group_id' => $batsman->id, 'exercise_id' => 101, 'order' => 0]);
+    ExerciseSubGroupItem::create(['exercise_sub_group_id' => $bowler->id, 'exercise_id' => 102, 'order' => 0]);
 
-    // 1. Fetch API without group_id (Should auto-select 1st group: Cricket)
+    // 1. Initial Request (no params) -> Auto loads Cricket (1st group) & Batsman (1st sub-group)
     $response = $this->getJson('/api/v1/exercise-groups');
 
     $response->assertOk()
@@ -218,32 +266,19 @@ test('mobile API returns popular exercise groups with default 1st group, paginat
             'success',
             'data' => [
                 'groups' => [
-                    '*' => [
-                        'id',
-                        'name',
-                        'sub_title',
-                        'is_selected',
-                    ]
+                    '*' => ['id', 'name', 'sub_title', 'is_selected']
                 ],
-                'selected_group' => [
-                    'id',
-                    'name',
-                    'sub_title',
-                    'total_items',
+                'selected_group' => ['id', 'name', 'sub_title', 'total_sub_groups'],
+                'sub_groups' => [
+                    '*' => ['id', 'name', 'sub_title', 'is_selected']
                 ],
+                'selected_sub_group' => ['id', 'name', 'sub_title', 'total_items'],
                 'exercises' => [
                     'current_page',
                     'total',
                     'per_page',
                     'data' => [
-                        '*' => [
-                            'item_number',
-                            'id',
-                            'name',
-                            'category',
-                            'fitness_level',
-                            'duration_or_reps',
-                        ]
+                        '*' => ['item_number', 'id', 'name', 'category', 'fitness_level', 'exercise_type']
                     ]
                 ]
             ]
@@ -251,20 +286,38 @@ test('mobile API returns popular exercise groups with default 1st group, paginat
         ->assertJsonFragment([
             'name' => 'Cricket',
             'is_selected' => true,
+        ])
+        ->assertJsonFragment([
+            'name' => 'Batsman',
+            'is_selected' => true,
         ]);
 
     $exercisesData = $response->json('data.exercises.data');
-    expect($exercisesData[0]['id'])->toBe(102);
-    expect($exercisesData[0]['name'])->toBe('Fast Bowler Run-Up Drill');
-    expect($exercisesData[1]['id'])->toBe(101);
-    expect($exercisesData[1]['name'])->toBe('Batting Stance Hold');
+    expect($exercisesData)->toHaveCount(1);
+    expect($exercisesData[0]['id'])->toBe(101);
+    expect($exercisesData[0]['name'])->toBe('Batting Stance Hold');
 
-    // 2. Fetch API for specific group (Football)
-    $responseFootball = $this->getJson("/api/v1/exercise-groups?group_id={$group2->id}");
+    // 2. Query Bowler Sub-Group: ?group_id=1&sub_group_id=2
+    $responseBowler = $this->getJson("/api/v1/exercise-groups?group_id={$cricket->id}&sub_group_id={$bowler->id}");
+    $responseBowler->assertOk()
+        ->assertJsonFragment([
+            'name' => 'Bowler',
+            'is_selected' => true,
+        ]);
+
+    $bowlerExercises = $responseBowler->json('data.exercises.data');
+    expect($bowlerExercises[0]['id'])->toBe(102);
+    expect($bowlerExercises[0]['name'])->toBe('Fast Bowler Run-Up Drill');
+
+    // 3. Query Football: ?group_id=2 -> Auto loads Striker (1st sub-group of Football)
+    $responseFootball = $this->getJson("/api/v1/exercise-groups?group_id={$football->id}");
     $responseFootball->assertOk()
         ->assertJsonFragment([
             'name' => 'Football',
             'is_selected' => true,
-            'total_items' => 0,
+        ])
+        ->assertJsonFragment([
+            'name' => 'Striker',
+            'is_selected' => true,
         ]);
 });

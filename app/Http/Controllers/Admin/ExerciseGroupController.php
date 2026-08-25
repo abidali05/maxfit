@@ -3,10 +3,8 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\Exercise;
-use App\Models\ExerciseCategory;
 use App\Models\ExerciseGroup;
-use App\Models\ExerciseGroupItem;
+use App\Models\ExerciseSubGroup;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -16,25 +14,26 @@ class ExerciseGroupController extends Controller
 {
     public function index()
     {
-        $exerciseGroups = ExerciseGroup::withCount('exercises')
+        $exerciseGroups = ExerciseGroup::withCount('subGroups')
+            ->with(['subGroups.exercises'])
             ->orderBy('id', 'desc')
             ->get();
 
         return view('exercise_groups.index', compact('exerciseGroups'));
     }
 
+    public function show($id)
+    {
+        $group = ExerciseGroup::with(['subGroups.exercises' => function ($q) {
+            $q->orderByPivot('order', 'asc');
+        }])->findOrFail($id);
+
+        return view('exercise_groups.show', compact('group'));
+    }
+
     public function create()
     {
-        $categories = ExerciseCategory::with(['exercises' => function ($q) {
-            $q->orderBy('name');
-        }])->orderBy('name')->get();
-
-        // Also get any uncategorized exercises if any
-        $uncategorizedExercises = Exercise::whereNull('exercise_category_id')
-            ->orderBy('name')
-            ->get();
-
-        return view('exercise_groups.create', compact('categories', 'uncategorizedExercises'));
+        return view('exercise_groups.create');
     }
 
     public function store(Request $request)
@@ -45,8 +44,6 @@ class ExerciseGroupController extends Controller
             'image' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg,webp|max:4096',
             'icon' => 'nullable|string|max:255',
             'status' => 'required|in:active,inactive',
-            'exercise_ids' => 'required|array|min:1',
-            'exercise_ids.*' => 'required|exists:exercises,id',
         ]);
 
         DB::beginTransaction();
@@ -64,18 +61,9 @@ class ExerciseGroupController extends Controller
                 'status' => $request->status ?? 'active',
             ]);
 
-            $exerciseIds = $request->input('exercise_ids', []);
-            foreach ($exerciseIds as $index => $exerciseId) {
-                ExerciseGroupItem::create([
-                    'exercise_group_id' => $exerciseGroup->id,
-                    'exercise_id' => $exerciseId,
-                    'order' => $index,
-                ]);
-            }
-
             DB::commit();
-            Toastr::success('Exercise Group created successfully', 'Success');
-            return redirect()->route('exercise-groups.index');
+            Toastr::success('Exercise Group created successfully. Now you can add sub-groups.', 'Success');
+            return redirect()->route('exercise-groups.show', $exerciseGroup->id);
         } catch (\Exception $e) {
             DB::rollBack();
             Toastr::error('An error occurred while creating group: ' . $e->getMessage(), 'Error');
@@ -85,22 +73,8 @@ class ExerciseGroupController extends Controller
 
     public function edit($id)
     {
-        $exerciseGroup = ExerciseGroup::with(['exercises' => function ($q) {
-            $q->orderByPivot('order', 'asc');
-        }])->findOrFail($id);
-        
-        $selectedExercises = $exerciseGroup->exercises;
-        $selectedExerciseIds = $selectedExercises->pluck('id')->toArray();
-
-        $categories = ExerciseCategory::with(['exercises' => function ($q) {
-            $q->orderBy('name');
-        }])->orderBy('name')->get();
-
-        $uncategorizedExercises = Exercise::whereNull('exercise_category_id')
-            ->orderBy('name')
-            ->get();
-
-        return view('exercise_groups.edit', compact('exerciseGroup', 'selectedExercises', 'selectedExerciseIds', 'categories', 'uncategorizedExercises'));
+        $exerciseGroup = ExerciseGroup::findOrFail($id);
+        return view('exercise_groups.edit', compact('exerciseGroup'));
     }
 
     public function update(Request $request, $id)
@@ -113,8 +87,6 @@ class ExerciseGroupController extends Controller
             'image' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg,webp|max:4096',
             'icon' => 'nullable|string|max:255',
             'status' => 'required|in:active,inactive',
-            'exercise_ids' => 'required|array|min:1',
-            'exercise_ids.*' => 'required|exists:exercises,id',
         ]);
 
         DB::beginTransaction();
@@ -135,20 +107,9 @@ class ExerciseGroupController extends Controller
 
             $exerciseGroup->update($data);
 
-            // Sync exercises in preserved sequence
-            $exerciseGroup->items()->delete();
-            $exerciseIds = $request->input('exercise_ids', []);
-            foreach ($exerciseIds as $index => $exerciseId) {
-                ExerciseGroupItem::create([
-                    'exercise_group_id' => $exerciseGroup->id,
-                    'exercise_id' => $exerciseId,
-                    'order' => $index,
-                ]);
-            }
-
             DB::commit();
             Toastr::success('Exercise Group updated successfully', 'Success');
-            return redirect()->route('exercise-groups.index');
+            return redirect()->route('exercise-groups.show', $exerciseGroup->id);
         } catch (\Exception $e) {
             DB::rollBack();
             Toastr::error('An error occurred while updating group: ' . $e->getMessage(), 'Error');

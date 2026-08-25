@@ -58,6 +58,7 @@ Route::middleware('auth')->group(function () {
     Route::resource('exercise-categories', ExerciseCategoryController::class);
     Route::resource('exercises', ExerciseController::class);
     Route::resource('exercise-groups', \App\Http\Controllers\Admin\ExerciseGroupController::class);
+    Route::resource('exercise-sub-groups', \App\Http\Controllers\Admin\ExerciseSubGroupController::class);
     Route::resource('plan-questions', PlanQuestionController::class);
     Route::get('competitions/available-users-count', [CompetitionController::class, 'availableUsersCount'])->name('competitions.available-users-count');
     Route::get('competitions/organizations-by-types', [CompetitionController::class, 'getOrganizationsByTypes'])->name('competitions.organizations-by-types');
