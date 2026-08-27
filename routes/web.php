@@ -98,9 +98,17 @@ Route::middleware('auth')->group(function () {
     Route::put('app-version', [AppVersionController::class, 'update'])->name('app-version.update');
 
     // Admin Groups Routes
+    Route::get('groups/organizations-by-types', [\App\Http\Controllers\Admin\GroupController::class, 'getOrganizationsByTypes'])->name('groups.organizations-by-types');
+    Route::get('groups/get-eligible-users', [\App\Http\Controllers\Admin\GroupController::class, 'getEligibleUsers'])->name('groups.eligible-users');
+    Route::post('groups/{id}/assign-exercises', [\App\Http\Controllers\Admin\GroupController::class, 'assignExercises'])->name('groups.assign-exercises');
     Route::post('groups/{id}/suspend', [\App\Http\Controllers\Admin\GroupController::class, 'suspend'])->name('groups.suspend');
     Route::post('groups/{id}/unsuspend', [\App\Http\Controllers\Admin\GroupController::class, 'unsuspend'])->name('groups.unsuspend');
-    Route::resource('groups', \App\Http\Controllers\Admin\GroupController::class)->only(['index', 'show']);
+    Route::resource('groups', \App\Http\Controllers\Admin\GroupController::class);
+
+    // Admin Group Reports Routes
+    Route::get('group-reports', [\App\Http\Controllers\Admin\ReportController::class, 'index'])->name('admin.reports.index');
+    Route::get('group-reports/download-receipt', [\App\Http\Controllers\Admin\ReportController::class, 'downloadReceipt'])->name('admin.reports.download-receipt');
+    Route::get('group-reports/export-csv', [\App\Http\Controllers\Admin\ReportController::class, 'exportCsv'])->name('admin.reports.export-csv');
 });
 
 
@@ -131,6 +139,7 @@ Route::middleware('auth:coach')->prefix('coach')->as('coach.')->group(function (
 
     // Exercise Reports
     Route::get('reports', [\App\Http\Controllers\Coach\ReportController::class, 'index'])->name('reports.index');
+    Route::get('reports/download-receipt', [\App\Http\Controllers\Coach\ReportController::class, 'downloadReceipt'])->name('reports.download-receipt');
     Route::get('reports/export-csv', [\App\Http\Controllers\Coach\ReportController::class, 'exportCsv'])->name('reports.export-csv');
 });
 

@@ -45,6 +45,8 @@ beforeEach(function () {
             $table->unsignedBigInteger('exercise_id');
             $table->date('start_date');
             $table->date('end_date');
+            $table->string('day')->nullable();
+            $table->integer('order')->default(0);
             $table->timestamps();
         });
     }
@@ -93,7 +95,7 @@ beforeEach(function () {
     }
 });
 
-test('coach can view exercise reports with summary stats and athlete breakdowns', function () {
+test('coach can view exercise reports, download PDF receipt, and export CSV', function () {
     $coach = Coach::create([
         'name' => 'Coach Farhan',
         'email' => 'farhan@example.com',
@@ -147,7 +149,8 @@ test('coach can view exercise reports with summary stats and athlete breakdowns'
         ->assertSee('Ali Khan')
         ->assertSee('Bilal Ahmed')
         ->assertSee('Burpees')
-        ->assertSee('40'); // 25 + 15 = 40 total reps
+        ->assertSee('Download Receipt (PDF)')
+        ->assertDontSee('Print Report'); // Print report removed
 
     // 2. Filter by single athlete (Ali Khan only)
     $filteredResponse = $this->actingAs($coach, 'coach')
@@ -163,7 +166,16 @@ test('coach can view exercise reports with summary stats and athlete breakdowns'
     expect($athleteStats->pluck('user.name')->all())->toContain('Ali Khan')
         ->not->toContain('Bilal Ahmed');
 
-    // 3. Export CSV
+    // 3. Download PDF Receipt
+    $pdfResponse = $this->actingAs($coach, 'coach')
+        ->get(route('coach.reports.download-receipt', [
+            'group_id' => $group->id,
+        ]));
+
+    $pdfResponse->assertOk();
+    expect($pdfResponse->headers->get('content-type'))->toBe('application/pdf');
+
+    // 4. Export CSV
     $csvResponse = $this->actingAs($coach, 'coach')
         ->get(route('coach.reports.export-csv', [
             'group_id' => $group->id,

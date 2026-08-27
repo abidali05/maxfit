@@ -45,6 +45,10 @@
                 <i class="fas fa-user-friends me-2"></i>Groups
             </a>
 
+            <a href="{{ route('admin.reports.index') }}" class="nav-item nav-link {{ Route::is('admin.reports.*') ? 'active' : '' }}">
+                <i class="fas fa-chart-line me-2"></i>Group Reports
+            </a>
+
             <div class="sidebar-section">
                 <button type="button"
                     class="nav-item nav-link sidebar-parent-link {{ $orgOpen ? 'active' : '' }}"

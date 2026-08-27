@@ -13,75 +13,75 @@ use Illuminate\Support\Facades\DB;
 
 class GroupInvitationController extends Controller
 {
-   
-   public function getInvitations()
-{
-    $userId = Auth::id();
 
-    // Get pending and accepted invitations
-    $invitations = GroupUser::where('user_id', $userId)
-        ->whereIn('status', ['pending', 'accepted'])
-        ->with(['group.coach', 'group.groupUsers'])
-        ->get();
+    public function getInvitations()
+    {
+        $userId = Auth::id();
 
-    $pendingCount = $invitations
-        ->where('status', 'pending')
-        ->count();
+        // Get pending and accepted invitations
+        $invitations = GroupUser::where('user_id', $userId)
+            ->whereIn('status', ['pending', 'accepted'])
+            ->with(['group.coach', 'group.groupUsers'])
+            ->get();
 
-    // Only accepted + group active should be counted as active
-    $activeCount = $invitations
-        ->filter(function ($invite) {
-            return $invite->status === 'accepted'
-                && ($invite->group->status ?? 'active') === 'active';
-        })
-        ->count();
+        $pendingCount = $invitations
+            ->where('status', 'pending')
+            ->count();
 
-    // Suspended groups count
-    $suspendedCount = $invitations
-        ->filter(function ($invite) {
-            return $invite->status === 'accepted'
-                && ($invite->group->status ?? 'active') === 'suspended';
-        })
-        ->count();
+        // Only accepted + group active should be counted as active
+        $activeCount = $invitations
+            ->filter(function ($invite) {
+                return $invite->status === 'accepted'
+                    && ($invite->group->status ?? 'active') === 'active';
+            })
+            ->count();
 
-    $groups = $invitations->map(function ($invite) {
+        // Suspended groups count
+        $suspendedCount = $invitations
+            ->filter(function ($invite) {
+                return $invite->status === 'accepted'
+                    && ($invite->group->status ?? 'active') === 'suspended';
+            })
+            ->count();
 
-        $created = $invite->created_at;
+        $groups = $invitations->map(function ($invite) {
 
-        if ($created->isToday()) {
-            $requestedDate = 'Today';
-        } elseif ($created->isYesterday()) {
-            $requestedDate = 'Yesterday';
-        } else {
-            $requestedDate = $created->diffForHumans();
-        }
+            $created = $invite->created_at;
 
-        $groupStatus = $invite->group->status ?? 'active';
+            if ($created->isToday()) {
+                $requestedDate = 'Today';
+            } elseif ($created->isYesterday()) {
+                $requestedDate = 'Yesterday';
+            } else {
+                $requestedDate = $created->diffForHumans();
+            }
 
-        return [
-            'group_id' => $invite->group_id,
-            'group_name' => $invite->group->name ?? 'Group',
-            'coach_name' => $invite->group->coach->name ?? 'Coach',
-            'athletes_count' => ($invite->group->groupUsers->count() ?? 0) . ' members',
-            'requested_date' => $requestedDate,
+            $groupStatus = $invite->group->status ?? 'active';
 
-            // If group is suspended, show suspended
-            'status' => $groupStatus === 'suspended'
-                ? 'suspended'
-                : ($invite->status === 'accepted' ? 'active' : $invite->status),
+            return [
+                'group_id' => $invite->group_id,
+                'group_name' => $invite->group->name ?? 'Group',
+                'coach_name' => $invite->group->coach->name ?? 'Coach',
+                'athletes_count' => ($invite->group->groupUsers->count() ?? 0) . ' members',
+                'requested_date' => $requestedDate,
 
-            'group_status' => $groupStatus,
-        ];
-    });
+                // If group is suspended, show suspended
+                'status' => $groupStatus === 'suspended'
+                    ? 'suspended'
+                    : ($invite->status === 'accepted' ? 'active' : $invite->status),
 
-    return $this->success([
-        'pending_count' => $pendingCount,
-        'active_count' => $activeCount,
-        'suspended_count' => $suspendedCount,
-        'groups' => $groups
-    ], 'Group invitations fetched successfully');
-}
-   
+                'group_status' => $groupStatus,
+            ];
+        });
+
+        return $this->success([
+            'pending_count' => $pendingCount,
+            'active_count' => $activeCount,
+            'suspended_count' => $suspendedCount,
+            'groups' => $groups
+        ], 'Group invitations fetched successfully');
+    }
+
     public function respondToInvitation(Request $request)
     {
         $request->validate([
@@ -162,7 +162,7 @@ class GroupInvitationController extends Controller
                 'image' => $exercise->image ? url('storage/' . $exercise->image) : asset('assets/images/user.jpg'),
                 'count' => $isSubmitted ? (int)$submission->count : 0,
                 'description' => $exercise->description ?? '',
-                'youtubeLink'=>$exercise->youtube_link??'',
+                'youtubeLink' => $exercise->youtube_link ?? '',
                 'is_submitted' => $isSubmitted,
                 'exercise_type' => $exerciseType,
                 'unit' => $unit,

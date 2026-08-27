@@ -1,5 +1,5 @@
 @extends('layouts.coach.app')
-@section('title', 'Group Details')
+@section('title', 'Group Details - ' . $group->name)
 @section('content')
     <div class="container-fluid pt-4 px-4" style="min-height: 82.5vh">
         <!-- Top Bar: Header & Actions -->
@@ -33,7 +33,7 @@
             <div class="col-lg-4 col-md-5">
                 <div class="bg-light rounded p-4 h-100 shadow-sm">
                     <h5 class="mb-3 border-bottom pb-2 fw-bold text-dark"><i class="fa fa-info-circle text-primary me-2"></i>Group Information</h5>
-                    
+
                     <div class="mb-2">
                         <label class="text-muted d-block small">Coach</label>
                         <span class="fw-bold text-dark">{{ $group->coach->name ?? 'N/A' }}</span>
@@ -69,7 +69,7 @@
                         @if($group->instructions)
                             {!! $group->instructions !!}
                         @else
-                            <p class="text-muted fst-italic mb-0">No instructions written for this group yet. You can add instructions by editing the group.</p>
+                            <p class="text-muted fst-italic mb-0">No instructions set for this group yet.</p>
                         @endif
                     </div>
                 </div>
@@ -84,7 +84,7 @@
                     <div class="d-flex align-items-center justify-content-between mb-3 border-bottom pb-2">
                         <h5 class="mb-0 fw-bold text-dark"><i class="fa fa-users text-primary me-2"></i>Athletes ({{ $group->groupUsers->count() }})</h5>
                     </div>
-                    <div class="table-responsive" style="max-height: 380px; overflow-y: auto;">
+                    <div class="table-responsive" style="max-height: 480px; overflow-y: auto;">
                         <table class="table text-start align-middle table-bordered table-hover mb-0">
                             <thead class="table-light">
                                 <tr class="text-dark small">
@@ -122,29 +122,31 @@
                 </div>
             </div>
 
-            <!-- Right: Exercises Assignment Panel -->
+            <!-- Right: Date Range & Day-Wise Routine Schedule -->
             <div class="col-lg-8 col-md-7">
                 <div class="bg-light rounded p-4 h-100 shadow-sm">
                     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3 border-bottom pb-2">
                         <div>
-                            <h5 class="mb-0 fw-bold text-dark"><i class="fa fa-dumbbell text-primary me-2"></i>Daily & Range Exercise Schedule</h5>
-                            <small class="text-muted">Assign multiple exercises to specific single dates or multi-day date ranges.</small>
+                            <h5 class="mb-0 fw-bold text-dark"><i class="fa fa-calendar-alt text-primary me-2"></i>Date Range & Day-Wise Exercise Routine</h5>
+                            <small class="text-muted">Set a Date Range (e.g. Aug 27 to Sep 05), then assign exercises to specific days (e.g. Thursday, Friday). Exercises repeat on that day within the range.</small>
                         </div>
-                        <button type="button" id="add-exercise-row" class="btn btn-primary btn-sm">
-                            <i class="fa fa-plus me-1"></i>Add Date / Schedule
-                        </button>
+                        {{-- <button type="button" id="add-schedule-block" class="btn btn-outline-primary btn-sm">
+                            <i class="fa fa-plus me-1"></i>Add Date Range
+                        </button> --}}
                     </div>
 
-                    <form action="{{ route('coach.groups.assign-exercises', $group->id) }}" method="POST">
+                    <form action="{{ route('coach.groups.assign-exercises', $group->id) }}" method="POST" id="scheduleForm">
                         @csrf
-                        <div id="exercise-rows" class="mb-4">
+                        <div id="schedule-blocks-container" class="mb-3">
                             <!-- Populated dynamically via JS -->
                         </div>
 
-                        <div class="d-flex justify-content-between align-items-center pt-2 border-top">
-                            <small class="text-muted">Athletes will only see exercises matching today's date in their mobile app.</small>
-                            <button type="submit" class="btn btn-success btn-sm px-4">
-                                <i class="fa fa-save me-1"></i>Save All Exercises
+                        <div class="d-flex flex-wrap justify-content-between align-items-center pt-3 border-top gap-2">
+                            {{-- <button type="button" id="add-schedule-block-bottom" class="btn btn-outline-secondary btn-sm">
+                                <i class="fa fa-plus me-1"></i>Add Another Date Range
+                            </button> --}}
+                            <button type="submit" class="btn btn-success px-4">
+                                <i class="fa fa-save me-1"></i>Save All Exercises Schedule
                             </button>
                         </div>
                     </form>
@@ -153,136 +155,320 @@
         </div>
     </div>
 
+    <style>
+        .flatpickr-day.flatpickr-disabled,
+        .flatpickr-day.flatpickr-disabled:hover,
+        .flatpickr-day.prevMonthDay,
+        .flatpickr-day.nextMonthDay {
+            color: #b0b5bc !important;
+            background: #f1f3f5 !important;
+            border-color: transparent !important;
+            cursor: not-allowed !important;
+            text-decoration: line-through !important;
+            opacity: 0.45 !important;
+        }
+        .flatpickr-day.selected, .flatpickr-day.startRange, .flatpickr-day.endRange {
+            background: #0d6efd !important;
+            border-color: #0d6efd !important;
+            color: #fff !important;
+        }
+        .start-date-input, .end-date-input {
+            background-color: #ffffff !important;
+            cursor: pointer !important;
+        }
+    </style>
+
+    <!-- Day Options Data for JS -->
     <script>
+        const exercisesList = @json($exercises);
+        const todayStr = @json(now()->toDateString());
+
         $(document).ready(function () {
-            let rowIndex = 0;
+            let scheduleIndex = 0;
 
-            // Load initial/existing assignments, grouping them by date configuration
-            const existingAssignments = @json($group->groupExercises);
-            const grouped = {};
-            
-            existingAssignments.forEach(function(item) {
-                const isSingle = (item.start_date === item.end_date);
-                const key = item.start_date + '_' + item.end_date;
-                if (!grouped[key]) {
-                    grouped[key] = {
-                        is_single: isSingle,
-                        start_date: item.start_date,
-                        end_date: item.end_date,
-                        exercise_ids: []
-                    };
-                }
-                grouped[key].exercise_ids.push(item.exercise_id);
-            });
-
-            const groupedList = Object.values(grouped);
-            if (groupedList.length > 0) {
-                groupedList.forEach(function(item) {
-                    addExerciseRow(item.exercise_ids, item.start_date, item.end_date, item.is_single);
-                });
-            } else {
-                // Add one empty single day row by default for today
-                const todayStr = new Date().toISOString().split('T')[0];
-                addExerciseRow([], todayStr, todayStr, true);
+            function getNextDayStr(dateStr) {
+                if (!dateStr) return todayStr;
+                const d = new Date(dateStr + 'T00:00:00');
+                d.setDate(d.getDate() + 1);
+                const year = d.getFullYear();
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
             }
 
-            $('#add-exercise-row').click(function() {
-                const todayStr = new Date().toISOString().split('T')[0];
-                addExerciseRow([], todayStr, todayStr, true);
-            });
+            function generateDayOptions(startDate, endDate, selectedVal) {
+                let html = '<optgroup label="Specific Dates in this Range">';
+                if (startDate && endDate && startDate <= endDate) {
+                    const start = new Date(startDate + 'T00:00:00');
+                    const end = new Date(endDate + 'T00:00:00');
+                    const curr = new Date(start);
 
-            $(document).on('click', '.remove-exercise-row', function() {
-                $(this).closest('.exercise-row-card').remove();
-            });
+                    while (curr <= end) {
+                        const year = curr.getFullYear();
+                        const month = String(curr.getMonth() + 1).padStart(2, '0');
+                        const day = String(curr.getDate()).padStart(2, '0');
+                        const dateStr = `${year}-${month}-${day}`;
+                        const dayName = curr.toLocaleDateString('en-US', { weekday: 'long' });
+                        const monthName = curr.toLocaleDateString('en-US', { month: 'short' });
+                        const label = `${dayName} (${monthName} ${curr.getDate()}, ${year})`;
 
-            // Toggle date mode
-            $(document).on('change', '.date-mode-select', function() {
-                const card = $(this).closest('.exercise-row-card');
-                const isRange = ($(this).val() === 'range');
-                const endDateContainer = card.find('.end-date-container');
-                const startDateLabel = card.find('.start-date-label');
-                const startDateInput = card.find('.start-date-input');
-                const endDateInput = card.find('.end-date-input');
-
-                if (isRange) {
-                    endDateContainer.removeClass('d-none');
-                    startDateLabel.text('Start Date');
-                    if (!endDateInput.val()) {
-                        endDateInput.val(startDateInput.val());
+                        const isSel = (selectedVal === dateStr) ? 'selected' : '';
+                        html += `<option value="${dateStr}" ${isSel}>${label}</option>`;
+                        curr.setDate(curr.getDate() + 1);
                     }
-                } else {
-                    endDateContainer.addClass('d-none');
-                    startDateLabel.text('Assignment Date');
-                    endDateInput.val(startDateInput.val());
+                }
+                html += '</optgroup>';
+
+                html += '<optgroup label="Recurring Weekly Days / Everyday">';
+                const genericDays = ['Everyday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+                genericDays.forEach(function(d) {
+                    const isSel = (selectedVal && selectedVal.toLowerCase() === d.toLowerCase()) ? 'selected' : '';
+                    const display = (d === 'Everyday') ? 'Everyday (All 7 Days)' : `Every ${d} (Recurring)`;
+                    html += `<option value="${d}" ${isSel}>${display}</option>`;
+                });
+                html += '</optgroup>';
+
+                return html;
+            }
+
+            // Load existing assignments
+            const existingAssignments = @json($group->groupExercises);
+            const groupedSchedules = {};
+
+            existingAssignments.forEach(function(item) {
+                const scheduleKey = item.start_date + '_' + item.end_date;
+                if (!groupedSchedules[scheduleKey]) {
+                    groupedSchedules[scheduleKey] = {
+                        start_date: item.start_date,
+                        end_date: item.end_date,
+                        routines: []
+                    };
+                }
+                let routine = groupedSchedules[scheduleKey].routines.find(r => r.day === item.day);
+                if (!routine) {
+                    routine = { day: item.day || 'Everyday', exercise_ids: [] };
+                    groupedSchedules[scheduleKey].routines.push(routine);
+                }
+                routine.exercise_ids.push(item.exercise_id);
+            });
+
+            const scheduleEntries = Object.values(groupedSchedules);
+            if (scheduleEntries.length > 0) {
+                scheduleEntries.forEach(function(sch) {
+                    addScheduleBlock(sch.start_date, sch.end_date, sch.routines);
+                });
+            } else {
+                const defaultStart = todayStr;
+                const defaultEnd = getNextDayStr(todayStr);
+                const defaultRoutines = [{ day: defaultStart, exercise_ids: [] }];
+                addScheduleBlock(defaultStart, defaultEnd, defaultRoutines);
+            }
+
+            $('#add-schedule-block, #add-schedule-block-bottom').click(function() {
+                const defaultStart = todayStr;
+                const defaultEnd = getNextDayStr(todayStr);
+                const defaultRoutines = [{ day: defaultStart, exercise_ids: [] }];
+                addScheduleBlock(defaultStart, defaultEnd, defaultRoutines);
+            });
+
+            $(document).on('click', '.add-day-routine-btn', function() {
+                const scheduleCard = $(this).closest('.schedule-card');
+                const sIdx = scheduleCard.data('s-index');
+                const container = scheduleCard.find('.day-routines-container');
+                const startDate = scheduleCard.find('.start-date-input').val() || todayStr;
+                const endDate = scheduleCard.find('.end-date-input').val() || startDate;
+                addDayRoutineRow(container, sIdx, startDate, endDate, startDate, []);
+            });
+
+            $(document).on('click', '.remove-day-row-btn', function() {
+                const row = $(this).closest('.day-routine-row');
+                const container = row.closest('.day-routines-container');
+                row.remove();
+                if (container.find('.day-routine-row').length === 0) {
+                    const scheduleCard = container.closest('.schedule-card');
+                    const sIdx = scheduleCard.data('s-index');
+                    const startDate = scheduleCard.find('.start-date-input').val() || todayStr;
+                    const endDate = scheduleCard.find('.end-date-input').val() || startDate;
+                    addDayRoutineRow(container, sIdx, startDate, endDate, startDate, []);
                 }
             });
 
-            // Keep endDate in sync if single day
-            $(document).on('change', '.start-date-input', function() {
-                const card = $(this).closest('.exercise-row-card');
-                const isRange = (card.find('.date-mode-select').val() === 'range');
-                if (!isRange) {
-                    card.find('.end-date-input').val($(this).val());
-                }
+            $(document).on('click', '.remove-schedule-btn', function() {
+                $(this).closest('.schedule-card').remove();
             });
 
-            function addExerciseRow(exerciseIds = [], startDate = '', endDate = '', isSingle = true) {
-                const index = rowIndex++;
-                if (!startDate) {
-                    startDate = new Date().toISOString().split('T')[0];
-                }
-                if (!endDate) {
-                    endDate = startDate;
-                }
+            function addScheduleBlock(startDate, endDate, routinesList = []) {
+                const sIdx = scheduleIndex++;
+                const minStart = (startDate && startDate < todayStr) ? startDate : todayStr;
+                const minEnd = startDate ? startDate : todayStr;
+                const initialEndDate = endDate || getNextDayStr(startDate || todayStr);
 
-                const rowHtml = `
-                    <div class="exercise-row-card bg-white border rounded p-3 mb-3 shadow-sm">
-                        <div class="row g-2 align-items-end">
-                            <div class="col-md-3">
-                                <label class="form-label small fw-bold mb-1 text-muted">Schedule Type</label>
-                                <select class="form-select form-select-sm date-mode-select">
-                                    <option value="single" ${isSingle ? 'selected' : ''}>Single Day</option>
-                                    <option value="range" ${!isSingle ? 'selected' : ''}>Date Range</option>
-                                </select>
+                const scheduleHtml = `
+                    <div class="schedule-card bg-white border rounded-3 p-3 mb-4 shadow-sm" data-s-index="${sIdx}">
+                        <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 pb-3 mb-3 border-bottom bg-light p-3 rounded-2">
+                            <div class="d-flex flex-wrap align-items-center gap-3">
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="badge bg-primary fs-6 px-2 py-1"><i class="fa fa-calendar-range me-1"></i>Date Range</span>
+                                </div>
+                                <div class="d-flex align-items-center gap-2">
+                                    <label class="form-label small fw-bold mb-0 text-muted">From:</label>
+                                    <input type="text" name="schedules[${sIdx}][start_date]" class="form-control form-control-sm start-date-input" value="${startDate || todayStr}" required style="max-width: 150px;" placeholder="YYYY-MM-DD" readonly>
+                                </div>
+                                <div class="d-flex align-items-center gap-2">
+                                    <label class="form-label small fw-bold mb-0 text-muted">To:</label>
+                                    <input type="text" name="schedules[${sIdx}][end_date]" class="form-control form-control-sm end-date-input" value="${initialEndDate}" required style="max-width: 150px;" placeholder="YYYY-MM-DD" readonly>
+                                </div>
                             </div>
-
-                            <div class="col-md-3">
-                                <label class="form-label small fw-bold mb-1 text-muted start-date-label">${isSingle ? 'Assignment Date' : 'Start Date'}</label>
-                                <input type="date" name="assignments[${index}][start_date]" class="form-control form-control-sm start-date-input" value="${startDate}" required>
-                            </div>
-
-                            <div class="col-md-3 end-date-container ${isSingle ? 'd-none' : ''}">
-                                <label class="form-label small fw-bold mb-1 text-muted">End Date</label>
-                                <input type="date" name="assignments[${index}][end_date]" class="form-control form-control-sm end-date-input" value="${endDate}">
-                            </div>
-
-                            <div class="${isSingle ? 'col-md-5' : 'col-md-2'} text-end">
-                                <button type="button" class="btn btn-outline-danger btn-sm remove-exercise-row" title="Remove this day schedule">
-                                    <i class="fa fa-trash me-1"></i>Remove
+                            <div>
+                                <button type="button" class="btn btn-outline-danger btn-sm remove-schedule-btn" title="Remove this entire date range">
+                                    <i class="fa fa-trash me-1"></i>Remove Range
                                 </button>
                             </div>
+                        </div>
 
-                            <div class="col-12 mt-2 pt-2 border-top">
-                                <label class="form-label small fw-bold mb-1 text-dark">Select Multiple Exercises for this Date / Range</label>
-                                <select name="assignments[${index}][exercise_ids][]" class="form-select select2-exercise" multiple required>
-                                    @foreach($exercises as $exercise)
-                                        <option value="{{ $exercise->id }}" ${exerciseIds.includes({{ $exercise->id }}) ? 'selected' : ''}>
-                                            {{ $exercise->name }} ({{ $exercise->exercise_category->name ?? 'N/A' }}) - {{ $exercise->exercise_type ?? 'count' }}
-                                        </option>
-                                    @endforeach
-                                </select>
+                        <div class="mb-2">
+                            <div class="d-flex align-items-center justify-content-between mb-2">
+                                <span class="fw-bold small text-dark"><i class="fa fa-tasks text-primary me-1"></i>Day-Wise Assigned Exercises:</span>
+                                <button type="button" class="btn btn-sm btn-outline-primary add-day-routine-btn">
+                                    <i class="fa fa-plus me-1"></i>Add Day Routine
+                                </button>
+                            </div>
+                            <div class="day-routines-container">
                             </div>
                         </div>
                     </div>
                 `;
 
-                $('#exercise-rows').append(rowHtml);
+                $('#schedule-blocks-container').append(scheduleHtml);
+                const scheduleCard = $(`#schedule-blocks-container .schedule-card[data-s-index="${sIdx}"]`);
+                const container = scheduleCard.find('.day-routines-container');
+
+                const startEl = scheduleCard.find('.start-date-input')[0];
+                const endEl = scheduleCard.find('.end-date-input')[0];
+
+                function updateDayDropdowns() {
+                    const curStart = $(startEl).val() || todayStr;
+                    const curEnd = $(endEl).val() || curStart;
+                    scheduleCard.find('.day-routine-row').each(function() {
+                        const daySelect = $(this).find('.day-select');
+                        const curVal = daySelect.val();
+                        daySelect.html(generateDayOptions(curStart, curEnd, curVal));
+                    });
+                }
+
+                let endPicker;
+                const startPicker = flatpickr(startEl, {
+                    dateFormat: "Y-m-d",
+                    minDate: minStart,
+                    defaultDate: startDate || todayStr,
+                    disableMobile: true,
+                    onChange: function(selectedDates, dateStr) {
+                        if (endPicker && selectedDates.length > 0) {
+                            endPicker.set('minDate', dateStr);
+                            const nextDayVal = getNextDayStr(dateStr);
+                            if (!endPicker.selectedDates.length || endPicker.selectedDates[0] < selectedDates[0]) {
+                                endPicker.setDate(nextDayVal, false);
+                            }
+                            endPicker.jumpToDate(dateStr);
+                        }
+                        updateDayDropdowns();
+                    }
+                });
+
+                endPicker = flatpickr(endEl, {
+                    dateFormat: "Y-m-d",
+                    minDate: minEnd,
+                    defaultDate: initialEndDate,
+                    disableMobile: true,
+                    onChange: function() {
+                        updateDayDropdowns();
+                    },
+                    onOpen: function(selectedDates, dateStr, instance) {
+                        if (startPicker && startPicker.selectedDates.length > 0) {
+                            instance.jumpToDate(startPicker.selectedDates[0]);
+                        }
+                    }
+                });
+
+                if (routinesList.length > 0) {
+                    routinesList.forEach(function(r) {
+                        addDayRoutineRow(container, sIdx, startDate || todayStr, initialEndDate, r.day, r.exercise_ids || []);
+                    });
+                } else {
+                    addDayRoutineRow(container, sIdx, startDate || todayStr, initialEndDate, startDate || todayStr, []);
+                }
+            }
+
+            // Ensure Select2 preserves order of newly selected options
+            $(document).on('select2:select', '.select2-day-exercises', function (e) {
+                if (e.params && e.params.data && e.params.data.element) {
+                    var element = e.params.data.element;
+                    var $element = $(element);
+                    $element.detach();
+                    $(this).append($element);
+                    $(this).trigger("change");
+                }
+            });
+
+            function addDayRoutineRow(container, sIdx, startDate, endDate, selectedDay = 'Monday', selectedExerciseIds = []) {
+                const dayRowIndex = container.find('.day-routine-row').length;
+                const dayOptionsHtml = generateDayOptions(startDate, endDate, selectedDay);
+
+                let exerciseOptionsHtml = '';
+                // 1. First append the selected exercises in their EXACT ordered sequence
+                selectedExerciseIds.forEach(function(selectedId) {
+                    const ex = exercisesList.find(e => Number(e.id) === Number(selectedId));
+                    if (ex) {
+                        const catName = ex.exercise_category ? ex.exercise_category.name : 'Exercise';
+                        const exType = ex.exercise_type || 'count';
+                        exerciseOptionsHtml += `<option value="${ex.id}" selected>${ex.name} (${catName}) &bull; ${exType}</option>`;
+                    }
+                });
+
+                // 2. Then append all remaining unselected exercises
+                exercisesList.forEach(function(ex) {
+                    const isAlreadySelected = selectedExerciseIds.some(id => Number(id) === Number(ex.id));
+                    if (!isAlreadySelected) {
+                        const catName = ex.exercise_category ? ex.exercise_category.name : 'Exercise';
+                        const exType = ex.exercise_type || 'count';
+                        exerciseOptionsHtml += `<option value="${ex.id}">${ex.name} (${catName}) &bull; ${exType}</option>`;
+                    }
+                });
+
+                const rowHtml = `
+                    <div class="day-routine-row bg-light border rounded p-2 mb-2">
+                        <div class="row g-2 align-items-center">
+                            <div class="col-md-3">
+                                <label class="form-label small fw-bold mb-1 text-muted"><i class="fa fa-clock me-1 text-primary"></i>Day / Date:</label>
+                                <select name="schedules[${sIdx}][days][${dayRowIndex}][day]" class="form-select form-select-sm fw-bold text-dark day-select" required>
+                                    ${dayOptionsHtml}
+                                </select>
+                            </div>
+
+                            <div class="col-md-8">
+                                <label class="form-label small fw-bold mb-1 text-muted"><i class="fa fa-dumbbell me-1 text-primary"></i>Exercises for this Day:</label>
+                                <select name="schedules[${sIdx}][days][${dayRowIndex}][exercise_ids][]" class="form-select select2-day-exercises" multiple required>
+                                    ${exerciseOptionsHtml}
+                                </select>
+                            </div>
+
+                            <!-- Delete Day Row -->
+                            <div class="col-md-1 text-end">
+                                <button type="button" class="btn btn-outline-danger btn-sm remove-day-row-btn mt-3" title="Remove this day routine">
+                                    <i class="fa fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                container.append(rowHtml);
 
                 // Initialize select2 on the newly created dropdown
-                $('#exercise-rows').find('.select2-exercise').last().select2({
+                container.find('.select2-day-exercises').last().select2({
                     theme: 'bootstrap-5',
                     width: '100%',
-                    placeholder: 'Search and choose exercises...'
+                    placeholder: 'Search and pick exercises for this day...'
                 });
             }
         });

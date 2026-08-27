@@ -1,15 +1,15 @@
 <?php
 
-namespace App\Http\Controllers\Coach;
+namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Group;
 use App\Models\GroupExercise;
 use App\Models\GroupExerciseSubmission;
 use App\Models\User;
+use App\Models\Coach;
 use App\Models\Exercise;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -17,16 +17,17 @@ class ReportController extends Controller
 {
     public function index(Request $request)
     {
-        $coachId = Auth::guard('coach')->id();
-        $groups = Group::where('coach_id', $coachId)
-            ->with(['groupUsers.user', 'groupExercises.exercise'])
-            ->orderBy('name')
-            ->get();
+        $coaches = Coach::orderBy('name')->get();
+        $selectedCoachId = $request->input('coach_id');
+
+        $groupsQuery = Group::with(['coach', 'groupUsers.user', 'groupExercises.exercise'])->orderBy('name');
+        if ($selectedCoachId) {
+            $groupsQuery->where('coach_id', $selectedCoachId);
+        }
+        $groups = $groupsQuery->get();
 
         $selectedGroupId = $request->input('group_id');
-        $selectedGroup = $selectedGroupId 
-            ? $groups->firstWhere('id', (int)$selectedGroupId) 
-            : $groups->first();
+        $selectedGroup = $selectedGroupId ? $groups->firstWhere('id', (int)$selectedGroupId) : null;
 
         $selectedUserIds = collect((array) $request->input('user_ids', []))
             ->filter()
@@ -39,12 +40,16 @@ class ReportController extends Controller
         $endDate = $request->input('end_date');
 
         $submissionsQuery = GroupExerciseSubmission::query()
-            ->with(['user', 'exercise.exercise_category', 'group']);
+            ->with(['user', 'exercise.exercise_category', 'group.coach']);
+
+        if ($selectedCoachId) {
+            $submissionsQuery->whereHas('group', function ($q) use ($selectedCoachId) {
+                $q->where('coach_id', $selectedCoachId);
+            });
+        }
 
         if ($selectedGroup) {
             $submissionsQuery->where('group_id', $selectedGroup->id);
-        } else {
-            $submissionsQuery->whereIn('group_id', $groups->pluck('id'));
         }
 
         if (!empty($selectedUserIds)) {
@@ -66,41 +71,39 @@ class ReportController extends Controller
         $submissions = $submissionsQuery
             ->orderBy('submitted_date', 'desc')
             ->orderBy('id', 'desc')
-            ->get();
+            ->paginate(30)
+            ->withQueryString();
 
-        // Compute summary metrics
-        $totalSubmissions = $submissions->count();
-        $totalCountSum = $submissions->sum('count');
-        $uniqueAthletesCount = $submissions->pluck('user_id')->unique()->count();
-        $activeDaysCount = $submissions->pluck('submitted_date')->unique()->count();
+        // Metrics for all matched records
+        $metricsQuery = clone $submissionsQuery;
+        $allMatched = $metricsQuery->get();
+        $totalSubmissions = $allMatched->count();
+        $totalCountSum = $allMatched->sum('count');
+        $uniqueAthletesCount = $allMatched->pluck('user_id')->unique()->count();
+        $uniqueGroupsCount = $allMatched->pluck('group_id')->unique()->count();
 
         // Group-level aggregate per athlete
-        $athleteStats = $submissions->groupBy('user_id')->map(function ($athleteSubs) {
+        $athleteStats = $allMatched->groupBy('user_id')->map(function ($athleteSubs) {
             $firstSub = $athleteSubs->first();
             return [
                 'user' => $firstSub->user,
+                'group' => $firstSub->group,
                 'submissions_count' => $athleteSubs->count(),
                 'total_reps' => $athleteSubs->sum('count'),
                 'active_days' => $athleteSubs->pluck('submitted_date')->unique()->count(),
                 'last_submission' => $athleteSubs->max('submitted_date'),
-                'exercises_breakdown' => $athleteSubs->groupBy('exercise_id')->map(function ($exSubs) {
-                    return [
-                        'exercise' => $exSubs->first()->exercise,
-                        'count_sum' => $exSubs->sum('count'),
-                        'submissions_count' => $exSubs->count(),
-                    ];
-                }),
             ];
         })->values();
 
-        // Available exercises for the selected group
-        $availableExercises = $selectedGroup 
-            ? $selectedGroup->groupExercises->map(fn($ge) => $ge->exercise)->filter()->unique('id')->values()
-            : Exercise::orderBy('name')->get();
+        $availableExercises = Exercise::orderBy('name')->get();
+        $availableAthletes = User::where('role', 'user')->orderBy('name')->get();
 
-        return view('coach.reports.index', compact(
+        return view('admin.reports.index', compact(
+            'coaches',
+            'selectedCoachId',
             'groups',
             'selectedGroup',
+            'selectedGroupId',
             'selectedUserIds',
             'selectedExerciseId',
             'startDate',
@@ -110,35 +113,32 @@ class ReportController extends Controller
             'totalSubmissions',
             'totalCountSum',
             'uniqueAthletesCount',
-            'activeDaysCount',
-            'availableExercises'
+            'uniqueGroupsCount',
+            'availableExercises',
+            'availableAthletes'
         ));
     }
 
     public function exportCsv(Request $request): StreamedResponse
     {
-        $coachId = Auth::guard('coach')->id();
-        $groups = Group::where('coach_id', $coachId)->get();
-
+        $selectedCoachId = $request->input('coach_id');
         $selectedGroupId = $request->input('group_id');
-        $selectedUserIds = collect((array) $request->input('user_ids', []))
-            ->filter()
-            ->map(fn($v) => (int)$v)
-            ->values()
-            ->all();
-
+        $selectedUserIds = collect((array) $request->input('user_ids', []))->filter()->map(fn($v) => (int)$v)->values()->all();
         $selectedExerciseId = $request->input('exercise_id');
         $startDate = $request->input('start_date');
         $endDate = $request->input('end_date');
 
         $submissionsQuery = GroupExerciseSubmission::query()
-            ->with(['user', 'exercise.exercise_category', 'group']);
+            ->with(['user', 'exercise.exercise_category', 'group.coach']);
+
+        if ($selectedCoachId) {
+            $submissionsQuery->whereHas('group', function ($q) use ($selectedCoachId) {
+                $q->where('coach_id', $selectedCoachId);
+            });
+        }
 
         if ($selectedGroupId) {
-            $submissionsQuery->where('group_id', $selectedGroupId)
-                ->whereIn('group_id', $groups->pluck('id'));
-        } else {
-            $submissionsQuery->whereIn('group_id', $groups->pluck('id'));
+            $submissionsQuery->where('group_id', $selectedGroupId);
         }
 
         if (!empty($selectedUserIds)) {
@@ -161,12 +161,13 @@ class ReportController extends Controller
             ->orderBy('submitted_date', 'desc')
             ->get();
 
-        $filename = 'group_exercise_report_' . date('Y_m_d_His') . '.csv';
+        $filename = 'admin_group_exercise_report_' . date('Y_m_d_His') . '.csv';
 
         return response()->streamDownload(function () use ($submissions) {
             $handle = fopen('php://output', 'w');
             fputcsv($handle, [
                 'Submission Date',
+                'Coach Name',
                 'Group Name',
                 'Athlete Name',
                 'Athlete Email',
@@ -181,6 +182,7 @@ class ReportController extends Controller
                 $unit = ($sub->exercise->exercise_type === 'sec' || $sub->exercise->exercise_type === 'seconds') ? 'per sec' : 'per count';
                 fputcsv($handle, [
                     $sub->submitted_date,
+                    $sub->group->coach->name ?? 'N/A',
                     $sub->group->name ?? 'N/A',
                     $sub->user->name ?? 'N/A',
                     $sub->user->email ?? 'N/A',
@@ -201,31 +203,29 @@ class ReportController extends Controller
 
     public function downloadReceipt(Request $request)
     {
-        $coachId = Auth::guard('coach')->id();
-        $coach = Auth::guard('coach')->user();
-        $groups = Group::where('coach_id', $coachId)->get();
+        $selectedCoachId = $request->input('coach_id');
+        $coach = $selectedCoachId ? Coach::find($selectedCoachId) : null;
 
         $selectedGroupId = $request->input('group_id');
-        $selectedGroup = $selectedGroupId ? $groups->firstWhere('id', (int)$selectedGroupId) : $groups->first();
+        $selectedGroup = $selectedGroupId ? Group::with('coach')->find($selectedGroupId) : null;
 
-        $selectedUserIds = collect((array) $request->input('user_ids', []))
-            ->filter()
-            ->map(fn($v) => (int)$v)
-            ->values()
-            ->all();
-
+        $selectedUserIds = collect((array) $request->input('user_ids', []))->filter()->map(fn($v) => (int)$v)->values()->all();
         $selectedExerciseId = $request->input('exercise_id');
         $selectedExercise = $selectedExerciseId ? Exercise::find($selectedExerciseId) : null;
         $startDate = $request->input('start_date');
         $endDate = $request->input('end_date');
 
         $submissionsQuery = GroupExerciseSubmission::query()
-            ->with(['user', 'exercise.exercise_category', 'group']);
+            ->with(['user', 'exercise.exercise_category', 'group.coach']);
+
+        if ($selectedCoachId) {
+            $submissionsQuery->whereHas('group', function ($q) use ($selectedCoachId) {
+                $q->where('coach_id', $selectedCoachId);
+            });
+        }
 
         if ($selectedGroup) {
             $submissionsQuery->where('group_id', $selectedGroup->id);
-        } else {
-            $submissionsQuery->whereIn('group_id', $groups->pluck('id'));
         }
 
         if (!empty($selectedUserIds)) {
@@ -249,7 +249,6 @@ class ReportController extends Controller
             ->orderBy('id', 'desc')
             ->get();
 
-        // Metrics
         $totalSubmissions = $submissions->count();
         $totalCountSum = $submissions->sum('count');
         $uniqueAthletesCount = $submissions->pluck('user_id')->unique()->count();
@@ -266,19 +265,19 @@ class ReportController extends Controller
             ];
         })->values();
 
-        $pdfHtml = view('coach.reports.receipt_pdf', compact(
-            'coach',
-            'selectedGroup',
-            'selectedExercise',
-            'startDate',
-            'endDate',
-            'submissions',
-            'athleteStats',
-            'totalSubmissions',
-            'totalCountSum',
-            'uniqueAthletesCount',
-            'activeDaysCount'
-        ))->render();
+        $pdfHtml = view('coach.reports.receipt_pdf', [
+            'coach' => $coach ?? ($selectedGroup->coach ?? null),
+            'selectedGroup' => $selectedGroup,
+            'selectedExercise' => $selectedExercise,
+            'startDate' => $startDate,
+            'endDate' => $endDate,
+            'submissions' => $submissions,
+            'athleteStats' => $athleteStats,
+            'totalSubmissions' => $totalSubmissions,
+            'totalCountSum' => $totalCountSum,
+            'uniqueAthletesCount' => $uniqueAthletesCount,
+            'activeDaysCount' => $activeDaysCount
+        ])->render();
 
         $options = new \Dompdf\Options();
         $options->set('isHtml5ParserEnabled', true);
@@ -290,7 +289,7 @@ class ReportController extends Controller
         $dompdf->setPaper('A4', 'portrait');
         $dompdf->render();
 
-        $groupSlug = $selectedGroup ? \Illuminate\Support\Str::slug($selectedGroup->name) : 'all-groups';
+        $groupSlug = $selectedGroup ? \Illuminate\Support\Str::slug($selectedGroup->name) : 'admin-all-groups';
         $filename = 'MaxFit-Receipt-' . $groupSlug . '-' . now()->format('Ymd-His') . '.pdf';
 
         return response($dompdf->output(), 200, [

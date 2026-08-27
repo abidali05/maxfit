@@ -269,42 +269,75 @@ class GroupController extends Controller
         $group = Group::where('coach_id', $coachId)->findOrFail($id);
 
         $request->validate([
+            'schedules' => 'nullable|array',
+            'schedules.*.start_date' => 'required|date',
+            'schedules.*.end_date' => 'required|date|after_or_equal:schedules.*.start_date',
+            'schedules.*.days' => 'required|array|min:1',
+            'schedules.*.days.*.day' => 'required|string',
+            'schedules.*.days.*.exercise_ids' => 'required|array|min:1',
+            'schedules.*.days.*.exercise_ids.*' => 'required|exists:exercises,id',
             'assignments' => 'nullable|array',
-            'assignments.*.exercise_ids' => 'required|array|min:1',
-            'assignments.*.exercise_ids.*' => 'required|exists:exercises,id',
-            'assignments.*.start_date' => 'required|date',
-            'assignments.*.end_date' => 'nullable|date',
         ]);
 
         DB::beginTransaction();
         try {
             $group->groupExercises()->delete();
 
-            $assignments = $request->input('assignments', []);
-            foreach ($assignments as $assign) {
-                $startDate = $assign['start_date'];
-                $endDate = !empty($assign['end_date']) ? $assign['end_date'] : $startDate;
-                if ($endDate < $startDate) {
-                    $endDate = $startDate;
-                }
+            if ($request->has('schedules')) {
+                $schedules = $request->input('schedules', []);
+                foreach ($schedules as $schedule) {
+                    $startDate = $schedule['start_date'];
+                    $endDate = !empty($schedule['end_date']) ? $schedule['end_date'] : $startDate;
+                    if ($endDate < $startDate) {
+                        $endDate = $startDate;
+                    }
 
-                $exerciseIds = $assign['exercise_ids'] ?? [];
-                foreach ($exerciseIds as $exerciseId) {
-                    $group->groupExercises()->create([
-                        'exercise_id' => $exerciseId,
-                        'start_date' => $startDate,
-                        'end_date' => $endDate,
-                    ]);
+                    $days = $schedule['days'] ?? [];
+                    foreach ($days as $dayItem) {
+                        $dayName = $dayItem['day'] ?? 'Everyday';
+                        $exerciseIds = $dayItem['exercise_ids'] ?? [];
+
+                        foreach ($exerciseIds as $orderIndex => $exerciseId) {
+                            $group->groupExercises()->create([
+                                'exercise_id' => $exerciseId,
+                                'start_date' => $startDate,
+                                'end_date' => $endDate,
+                                'day' => $dayName,
+                                'order' => $orderIndex,
+                            ]);
+                        }
+                    }
+                }
+            } elseif ($request->has('assignments')) {
+                $assignments = $request->input('assignments', []);
+                foreach ($assignments as $assign) {
+                    $startDate = $assign['start_date'];
+                    $endDate = !empty($assign['end_date']) ? $assign['end_date'] : $startDate;
+                    if ($endDate < $startDate) {
+                        $endDate = $startDate;
+                    }
+
+                    $dayName = $assign['day'] ?? null;
+                    $exerciseIds = $assign['exercise_ids'] ?? [];
+                    foreach ($exerciseIds as $orderIndex => $exerciseId) {
+                        $group->groupExercises()->create([
+                            'exercise_id' => $exerciseId,
+                            'start_date' => $startDate,
+                            'end_date' => $endDate,
+                            'day' => $dayName,
+                            'order' => $orderIndex,
+                        ]);
+                    }
                 }
             }
 
             DB::commit();
-            Toastr::success('Exercise assignments updated successfully', 'Success');
+            Toastr::success('Exercise schedule and routines updated successfully', 'Success');
             return redirect()->back();
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error("Failed to assign exercises: " . $e->getMessage());
-            Toastr::error('An error occurred while saving exercises', 'Error');
+            Toastr::error('An error occurred while saving exercises: ' . $e->getMessage(), 'Error');
             return redirect()->back()->withInput();
         }
     }

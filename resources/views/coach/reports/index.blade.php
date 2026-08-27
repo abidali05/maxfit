@@ -9,12 +9,12 @@
                 <p class="text-muted small mb-0">Analyze and export daily exercise counts and performance metrics across your athlete groups.</p>
             </div>
             <div class="d-flex gap-2">
-                <button type="button" onclick="window.print()" class="btn btn-outline-secondary btn-sm">
-                    <i class="fa fa-print me-1"></i>Print Report
-                </button>
-                <a href="{{ route('coach.reports.export-csv', request()->all()) }}" class="btn btn-success btn-sm">
-                    <i class="fa fa-file-csv me-1"></i>Export CSV
+                <a href="{{ route('coach.reports.download-receipt', request()->all()) }}" class="btn btn-primary btn-sm">
+                    <i class="fa fa-file-pdf me-1"></i>Download Receipt (PDF)
                 </a>
+                {{-- <a href="{{ route('coach.reports.export-csv', request()->all()) }}" class="btn btn-outline-success btn-sm">
+                    <i class="fa fa-file-csv me-1"></i>Export CSV
+                </a> --}}
             </div>
         </div>
 

@@ -16,14 +16,40 @@ class GoalController extends Controller
 {
     private function mapTodayExercisePayload($goalItem, ?int $sequence, float $todayCount, $lastLoggedAt): array
     {
+        $exercise = $goalItem->exercise;
+        $rawType = strtolower($exercise->exercise_type ?? 'count');
+        $isSec = str_contains($rawType, 'sec');
+        $unit = $isSec ? 'per sec' : 'per count';
+        $formattedType = $isSec ? 'per second' : 'per count';
+
+        $exerciseData = null;
+        if ($exercise) {
+            $exerciseData = [
+                'id' => $exercise->id,
+                'name' => $exercise->name,
+                'category' => $exercise->exercise_category->name ?? 'N/A',
+                'image' => $exercise->image ? url('storage/' . $exercise->image) : asset('assets/images/user.jpg'),
+                'exercise_type' => $formattedType,
+                'unit' => $unit,
+                'description' => $exercise->description ?? '',
+                'youtubeLink' => $exercise->youtube_link ?? '',
+            ];
+        }
+
         return [
             'goal_id' => $goalItem->id,
-            'value' => $goalItem->value,
+            'exercise_id' => (int) $goalItem->exercise_id,
+            'value' => (string) $goalItem->value,
+            'target_count' => (int) $goalItem->value,
+            'count' => (int) $todayCount,
+            'today_count' => (int) $todayCount,
             'sequence' => $sequence,
-            'today_count' => $todayCount,
+            'is_submitted' => $todayCount > 0,
             'marked_today' => $todayCount > 0,
-            // 'last_logged_at' => $lastLoggedAt,
-            'exercise' => $goalItem->exercise,
+            'last_logged_at' => $lastLoggedAt,
+            'exercise_type' => $formattedType,
+            'unit' => $unit,
+            'exercise' => $exerciseData ?? $goalItem->exercise,
         ];
     }
 
@@ -76,13 +102,16 @@ class GoalController extends Controller
         ];
 
         if ($request->skip !== 'yes') {
-            $rules['start_date']         = 'required|date';
-            $rules['end_date']           = 'required|date|after:start_date';
-            $rules['sets']               = 'required|array';
-            $rules['sets.*.set_id']      = 'required|exists:sets,id';
-            $rules['sets.*.days']        = 'required|array';
-            $rules['sets.*.exercises']   = 'required|array';
-            $rules['sets.*.exercises.*'] = 'nullable|numeric';
+            $rules['start_date']                            = 'required|date';
+            $rules['end_date']                              = 'required|date|after_or_equal:start_date';
+            $rules['sets']                                  = 'required|array|min:1';
+            $rules['sets.*.set_id']                         = 'required|exists:sets,id';
+            $rules['sets.*.days']                           = 'nullable|array';
+            $rules['sets.*.exercises']                      = 'nullable|array';
+            $rules['sets.*.exercise_details']               = 'nullable|array';
+            $rules['sets.*.exercise_details.*.exercise_id'] = 'required_with:sets.*.exercise_details|exists:exercises,id';
+            $rules['sets.*.exercise_details.*.value']       = 'nullable';
+            $rules['sets.*.exercise_details.*.days']        = 'nullable|array';
         }
 
         $validator = Validator::make($request->all(), $rules);
@@ -106,28 +135,58 @@ class GoalController extends Controller
 
             foreach ($request->sets as $set) {
                 $setId = (int) $set['set_id'];
-                $daysJson = json_encode($set['days']);
+                $setDays = $set['days'] ?? [];
 
-                foreach ($set['exercises'] as $exerciseId => $value) {
+                // 1. If exercise_details is provided, use per-exercise specific days
+                if (!empty($set['exercise_details']) && is_array($set['exercise_details'])) {
+                    foreach ($set['exercise_details'] as $detail) {
+                        $exerciseId = (int) ($detail['exercise_id'] ?? 0);
+                        $value = $detail['value'] ?? null;
+                        $exerciseDays = !empty($detail['days']) ? $detail['days'] : $setDays;
 
-                    if ($value === null) { // || (int)$value === 0
-                        continue;
+                        if (!$exerciseId || $value === null) {
+                            continue;
+                        }
+
+                        Goal::updateOrCreate(
+                            [
+                                'user_id'     => $userId,
+                                'set_id'      => $setId,
+                                'exercise_id' => $exerciseId,
+                            ],
+                            [
+                                'value'       => (string) $value,
+                                'days'        => json_encode(array_values($exerciseDays)),
+                                'start_date'  => $request->start_date,
+                                'end_date'    => $request->end_date,
+                                'updated_at'  => now(),
+                            ]
+                        );
                     }
+                } 
+                // 2. Fallback to legacy exercises object if exercise_details is not provided
+                elseif (!empty($set['exercises']) && is_array($set['exercises'])) {
+                    $daysJson = json_encode(array_values($setDays));
+                    foreach ($set['exercises'] as $exerciseId => $value) {
+                        if ($value === null) {
+                            continue;
+                        }
 
-                    Goal::updateOrCreate(
-                        [
-                            'user_id'     => $userId,
-                            'set_id'      => $setId,
-                            'exercise_id' => (int) $exerciseId,
-                        ],
-                        [
-                            'value'      => $value,
-                            'days'       => $daysJson,
-                            'start_date'  => $request->start_date,
-                            'end_date'    => $request->end_date,
-                            'updated_at' => now(),
-                        ]
-                    );
+                        Goal::updateOrCreate(
+                            [
+                                'user_id'     => $userId,
+                                'set_id'      => $setId,
+                                'exercise_id' => (int) $exerciseId,
+                            ],
+                            [
+                                'value'       => (string) $value,
+                                'days'        => $daysJson,
+                                'start_date'  => $request->start_date,
+                                'end_date'    => $request->end_date,
+                                'updated_at'  => now(),
+                            ]
+                        );
+                    }
                 }
             }
 
@@ -143,13 +202,22 @@ class GoalController extends Controller
     }
 
 
-    public function getTodayGoals()
+    public function getTodayGoals(Request $request)
     {
         try {
             $user = Auth::user();
 
-            $todayDate = Carbon::today()->toDateString();
-            $todayDay  = Carbon::today()->format('D');
+            $targetDate = $request->query('date', Carbon::today()->toDateString());
+            try {
+                $cDate = Carbon::parse($targetDate);
+                $targetDate = $cDate->toDateString();
+                $targetDayShort = $cDate->format('D'); // Mon, Tue...
+                $targetDayFull = $cDate->format('l'); // Monday...
+            } catch (\Exception $e) {
+                $targetDate = Carbon::today()->toDateString();
+                $targetDayShort = Carbon::today()->format('D');
+                $targetDayFull = Carbon::today()->format('l');
+            }
 
             $dayMap = [
                 'Mon' => 'M',
@@ -161,103 +229,104 @@ class GoalController extends Controller
                 'Sun' => 'Su'
             ];
 
-            $day = $dayMap[$todayDay];
+            $dayCode = $dayMap[$targetDayShort] ?? $targetDayShort;
 
+            // Fetch goals active for targetDate containing the dayCode or dayName
             $goals = Goal::where('user_id', $user->id)
-                ->whereDate('start_date', '<=', $todayDate)
-                ->whereDate('end_date', '>=', $todayDate)
-                ->whereJsonContains('days', $day)
-                ->with(['exercise', 'set.setExercises' => function ($query) {
+                ->whereDate('start_date', '<=', $targetDate)
+                ->whereDate('end_date', '>=', $targetDate)
+                ->where(function ($q) use ($dayCode, $targetDayFull, $targetDayShort) {
+                    $q->whereJsonContains('days', $dayCode)
+                      ->orWhereJsonContains('days', $targetDayFull)
+                      ->orWhereJsonContains('days', $targetDayShort)
+                      ->orWhereJsonContains('days', 'Everyday')
+                      ->orWhereNull('days');
+                })
+                ->with(['exercise.exercise_category', 'set.setExercises' => function ($query) {
                     $query->orderBy('sequence');
                 }])
                 ->get()
                 ->groupBy('set_id');
 
-            // Today's logged assessment counts grouped by set/exercise.
+            // Today's logged assessment counts
             $todayAssessments = DailyAssessment::where('user_id', $user->id)
-                ->whereDate('created_at', $todayDate)
+                ->whereDate('created_at', $targetDate)
                 ->select('set_id', 'exercise_id')
                 ->selectRaw('SUM(COALESCE(`count`, 0)) as total_count')
                 ->selectRaw('MAX(created_at) as last_logged_at')
                 ->groupBy('set_id', 'exercise_id')
-                ->get()
-                ->keyBy(function ($assessment) {
-                    return ($assessment->set_id ?? 'null') . '_' . $assessment->exercise_id;
+                ->get();
+
+            $totalExercisesCount = 0;
+            $completedExercisesCount = 0;
+            $todayTotalCount = 0;
+            $todayTargetTotal = 0;
+
+            $setsPayload = [];
+
+            foreach ($goals as $setId => $items) {
+                $set = ($setId && $items->first()->set) ? $items->first()->set : null;
+                $setExercises = $set ? $set->setExercises->pluck('sequence', 'exercise_id') : collect([]);
+
+                $sortedItems = $items->sortBy(function ($item) use ($setExercises) {
+                    return $setExercises[$item->exercise_id] ?? 999;
                 });
+
+                $exercisePayload = $sortedItems->map(function ($item) use ($setExercises, $todayAssessments, &$completedExercisesCount, &$todayTotalCount, &$todayTargetTotal) {
+                    // Match assessment by set_id and exercise_id, or fallback by exercise_id
+                    $todayAssessment = $todayAssessments->first(function ($a) use ($item) {
+                        if (!empty($item->set_id) && !empty($a->set_id)) {
+                            return (int)$a->set_id === (int)$item->set_id && (int)$a->exercise_id === (int)$item->exercise_id;
+                        }
+                        return (int)$a->exercise_id === (int)$item->exercise_id;
+                    });
+
+                    $count = $todayAssessment ? (float) $todayAssessment->total_count : 0.0;
+                    $sequence = $setExercises[$item->exercise_id] ?? null;
+
+                    if ($count > 0) {
+                        $completedExercisesCount++;
+                    }
+                    $todayTotalCount += $count;
+                    $todayTargetTotal += (float) ($item->value ?? 0);
+
+                    return $this->mapTodayExercisePayload(
+                        $item,
+                        $sequence,
+                        $count,
+                        $todayAssessment->last_logged_at ?? null
+                    );
+                })->values();
+
+                $totalExercisesCount += $exercisePayload->count();
+
+                $setsPayload[] = [
+                    'set_id' => $setId ? (int)$setId : null,
+                    'set_name' => $set ? $set->name : null,
+                    'today_total_count' => (int) $exercisePayload->sum('count'),
+                    'today_target_total' => (int) $exercisePayload->sum('target_count'),
+                    'exercises_count' => $exercisePayload->count(),
+                    'exercises' => $exercisePayload,
+                ];
+            }
 
             $response = [
                 'user' => [
-                    'id'    => $user->id,
-                    'name'  => $user->name,
-                    'email' => $user->email
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
                 ],
-                'date' => $todayDate,
-                'day'  => $day,
-                'sets' => []
+                'date' => $targetDate,
+                'day' => $dayCode,
+                'day_name' => $targetDayFull,
+                'today_total_count' => (int) $todayTotalCount,
+                'today_target_total' => (int) $todayTargetTotal,
+                'total_exercises_count' => $totalExercisesCount,
+                'completed_exercises_count' => $completedExercisesCount,
+                'sets' => $setsPayload,
             ];
 
-            foreach ($goals as $setId => $items) {
-                if ($setId && $items->first()->set) {
-                    $set = $items->first()->set; // <-- already exists, keep this
-
-                    // Get exercise sequence from set_exercises table
-                    $setExercises = $set->setExercises->pluck('sequence', 'exercise_id');
-
-                    // Sort exercises by sequence
-                    $sortedItems = $items->sortBy(function ($item) use ($setExercises) {
-                        return $setExercises[$item->exercise_id] ?? 999;
-                    });
-
-                    $exercisePayload = $sortedItems->map(function ($item) use ($setExercises, $todayAssessments) {
-                        $assessmentKey = ($item->set_id ?? 'null') . '_' . $item->exercise_id;
-                        $todayAssessment = $todayAssessments->get($assessmentKey);
-                        $todayCount = $todayAssessment ? (float) $todayAssessment->total_count : 0.0;
-                        $sequence = $setExercises[$item->exercise_id] ?? null;
-
-                        return $this->mapTodayExercisePayload(
-                            $item,
-                            $sequence,
-                            $todayCount,
-                            $todayAssessment->last_logged_at ?? null
-                        );
-                    })->values();
-
-                    $response['sets'][] = [
-                        'set_id'   => $setId,          // <-- already exists, keep this
-                        'set_name' => $set->name,      // <-- ADD THIS LINE to include set name
-                        'today_total_count' => $exercisePayload->sum('today_count'),
-                        'exercises' => $exercisePayload,
-                    ];
-                } else {
-                    // Handle goals without set_id
-                    $exercisePayload = $items->map(function ($item) use ($todayAssessments) {
-                        $assessmentKey = ($item->set_id ?? 'null') . '_' . $item->exercise_id;
-                        $todayAssessment = $todayAssessments->get($assessmentKey);
-                        $todayCount = $todayAssessment ? (float) $todayAssessment->total_count : 0.0;
-
-                        return $this->mapTodayExercisePayload(
-                            $item,
-                            null,
-                            $todayCount,
-                            $todayAssessment->last_logged_at ?? null
-                        );
-                    })->values();
-
-                    $response['sets'][] = [
-                        'set_id'   => $setId,        // <-- already exists
-                        'set_name' => null,          // <-- ADD THIS LINE to keep set_name field consistent
-                        'today_total_count' => $exercisePayload->sum('today_count'),
-                        'exercises' => $exercisePayload,
-                    ];
-                }
-            }
-
-
-            return $this->success(
-                $response,
-                'Today workout fetched successfully',
-                200
-            );
+            return $this->success($response, 'Today workout fetched successfully', 200);
         } catch (\Throwable $th) {
             return $this->error($th->getMessage(), [], 500);
         }
@@ -281,79 +350,118 @@ class GoalController extends Controller
                 'Sun' => 'Su'
             ];
 
-            $day = $dayMap[$todayDay];
+            $day = $dayMap[$todayDay] ?? $todayDay;
 
             $goals = Goal::where('user_id', $user->id)
-                ->with(['exercise', 'set.setExercises' => function ($query) {
+                ->with(['exercise.exercise_category', 'set.setExercises' => function ($query) {
                     $query->orderBy('sequence');
                 }])
                 ->get()
                 ->groupBy('set_id');
 
-            $response = [
-                'user' => [
-                    'id'    => $user->id,
-                    'name'  => $user->name,
-                    'email' => $user->email
-                ],
-                'date' => $todayDate,
-                'day'  => $day,
-                'sets' => []
-            ];
+            $firstGoal = Goal::where('user_id', $user->id)->whereNotNull('start_date')->orderBy('id', 'desc')->first();
+            $startDate = $firstGoal && $firstGoal->start_date ? Carbon::parse($firstGoal->start_date)->toDateString() : null;
+            $endDate = $firstGoal && $firstGoal->end_date ? Carbon::parse($firstGoal->end_date)->toDateString() : null;
+
+            $setsPayload = [];
 
             foreach ($goals as $setId => $items) {
+                $set = ($setId && $items->first()->set) ? $items->first()->set : null;
+                $setExercises = $set ? $set->setExercises->pluck('sequence', 'exercise_id') : collect([]);
 
-                $rawDays = $items->first()->days ?? [];
+                $firstSetGoal = $items->first();
+                $setStartDate = $firstSetGoal && $firstSetGoal->start_date ? Carbon::parse($firstSetGoal->start_date)->toDateString() : $startDate;
+                $setEndDate = $firstSetGoal && $firstSetGoal->end_date ? Carbon::parse($firstSetGoal->end_date)->toDateString() : $endDate;
 
-                if (is_string($rawDays)) {
-                    $decoded = json_decode($rawDays, true);
-                    $setDays = is_array($decoded) ? $decoded : [];
-                } elseif (is_array($rawDays)) {
-                    $setDays = $rawDays;
-                } else {
-                    $setDays = [];
-                }
+                $sortedItems = $items->sortBy(function ($item) use ($setExercises) {
+                    return $setExercises[$item->exercise_id] ?? 999;
+                });
 
-                $setDays = collect($setDays)->unique()->values();
+                // Collect aggregate days across all exercises in this set
+                $allSetDays = [];
+                $exercisesObject = [];
+                $exerciseDetails = [];
 
-                if ($setId && $items->first()->set) {
-                    $set = $items->first()->set;
+                $exercisesList = $sortedItems->map(function ($item) use ($setExercises, $setStartDate, $setEndDate, &$allSetDays, &$exercisesObject, &$exerciseDetails) {
+                    $rawExDays = $item->days ?? [];
+                    if (is_string($rawExDays)) {
+                        $decoded = json_decode($rawExDays, true);
+                        $exDays = is_array($decoded) ? $decoded : [];
+                    } elseif (is_array($rawExDays)) {
+                        $exDays = $rawExDays;
+                    } else {
+                        $exDays = [];
+                    }
 
-                    $setExercises = $set->setExercises->pluck('sequence', 'exercise_id');
+                    $allSetDays = array_merge($allSetDays, $exDays);
+                    $exercisesObject[(string)$item->exercise_id] = (string)$item->value;
 
-                    $sortedItems = $items->sortBy(function ($item) use ($setExercises) {
-                        return $setExercises[$item->exercise_id] ?? 999;
-                    });
+                    $exercise = $item->exercise;
+                    $rawType = strtolower($exercise->exercise_type ?? 'count');
+                    $isSec = str_contains($rawType, 'sec');
+                    $unit = $isSec ? 'per sec' : 'per count';
+                    $formattedType = $isSec ? 'per second' : 'per count';
 
-                    $response['sets'][] = [
-                        'set_id'   => $setId,
-                        'set_name' => $set->name,
-                        'days'     => $setDays,
-                        'exercises' => $sortedItems->map(function ($item) use ($setExercises) {
-                            return [
-                                'goal_id'  => $item->id,
-                                'value'    => $item->value,
-                                'sequence' => $setExercises[$item->exercise_id] ?? null,
-                                'exercise' => $item->exercise
-                            ];
-                        })->values()
+                    $exStartDate = $item->start_date ? Carbon::parse($item->start_date)->toDateString() : $setStartDate;
+                    $exEndDate = $item->end_date ? Carbon::parse($item->end_date)->toDateString() : $setEndDate;
+
+                    $exerciseDetails[] = [
+                        'exercise_id' => (int) $item->exercise_id,
+                        'value' => (string) $item->value,
+                        'days' => $exDays,
+                        'start_date' => $exStartDate,
+                        'end_date' => $exEndDate,
                     ];
-                } else {
-                    $response['sets'][] = [
-                        'set_id'   => $setId,
-                        'set_name' => null,
-                        'days'     => $setDays,
-                        'exercises' => $items->map(function ($item) {
-                            return [
-                                'goal_id'  => $item->id,
-                                'value'    => $item->value,
-                                'sequence' => null,
-                                'exercise' => $item->exercise
-                            ];
-                        })->values()
+
+                    return [
+                        'goal_id' => $item->id,
+                        'exercise_id' => (int) $item->exercise_id,
+                        'value' => (string) $item->value,
+                        'days' => $exDays,
+                        'start_date' => $exStartDate,
+                        'end_date' => $exEndDate,
+                        'sequence' => $setExercises[$item->exercise_id] ?? null,
+                        'exercise_type' => $formattedType,
+                        'unit' => $unit,
+                        'exercise' => $exercise ? [
+                            'id' => $exercise->id,
+                            'name' => $exercise->name,
+                            'category' => $exercise->exercise_category->name ?? 'N/A',
+                            'image' => $exercise->image ? url('storage/' . $exercise->image) : asset('assets/images/user.jpg'),
+                            'exercise_type' => $formattedType,
+                            'unit' => $unit,
+                            'description' => $exercise->description ?? '',
+                            'youtubeLink' => $exercise->youtube_link ?? '',
+                        ] : null,
                     ];
-                }
+                })->values();
+
+                $uniqueSetDays = array_values(array_unique($allSetDays));
+
+                $setsPayload[] = [
+                    'set_id' => $setId ? (int)$setId : null,
+                    'set_name' => $set ? $set->name : null,
+                    'start_date' => $setStartDate,
+                    'end_date' => $setEndDate,
+                    'days' => $uniqueSetDays,
+                    'exercises' => $exercisesObject,
+                    'exercise_details' => $exerciseDetails,
+                    'exercise_list' => $exercisesList,
+                ];
             }
+
+            $response = [
+                'user' => [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                ],
+                'start_date' => $startDate,
+                'end_date' => $endDate,
+                'date' => $todayDate,
+                'day' => $day,
+                'sets' => $setsPayload,
+            ];
 
             return $this->success($response, 'Workout fetched successfully', 200);
         } catch (\Throwable $th) {

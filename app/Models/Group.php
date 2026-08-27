@@ -43,7 +43,7 @@ class Group extends Model
 
     public function groupExercises()
     {
-        return $this->hasMany(GroupExercise::class);
+        return $this->hasMany(GroupExercise::class)->orderBy('order', 'asc')->orderBy('id', 'asc');
     }
 
     public function countryRelation()

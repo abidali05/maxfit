@@ -292,6 +292,63 @@ test('admin can list, view, and suspend groups', function () {
         'id' => $group->id,
         'status' => 'active',
     ]);
+
+    // 5. Admin Create Group View & Store
+    $athlete = User::factory()->create(['role' => 'user', 'status' => 'active']);
+    $createViewRes = $this->actingAs($admin)->get(route('groups.create'));
+    $createViewRes->assertOk()->assertViewIs('admin.groups.create');
+
+    $storeRes = $this->actingAs($admin)->post(route('groups.store'), [
+        'coach_id' => $coach->id,
+        'name' => 'Admin Created Group',
+        'instructions' => '<p>Test Admin Instructions</p>',
+        'user_ids' => [$athlete->id],
+    ]);
+    $storeRes->assertRedirect(route('groups.index'));
+    $this->assertDatabaseHas('groups', ['name' => 'Admin Created Group', 'coach_id' => $coach->id]);
+
+    $newGroup = Group::where('name', 'Admin Created Group')->first();
+
+    // 6. Admin Edit View & Update
+    $editViewRes = $this->actingAs($admin)->get(route('groups.edit', $newGroup->id));
+    $editViewRes->assertOk()->assertViewIs('admin.groups.edit');
+
+    // 7. Admin Assign Exercises & Day Routines
+    $cat = \App\Models\ExerciseCategory::create(['name' => 'Upper Body']);
+    $ex1 = \App\Models\Exercise::create([
+        'name' => 'Admin Drill 1',
+        'exercise_category_id' => $cat->id,
+        'exercise_type' => 'count',
+        'genz' => 'fatherfits',
+        'fitness_level' => 'both',
+        'gender' => 'both',
+    ]);
+
+    $assignRes = $this->actingAs($admin)->post(route('groups.assign-exercises', $newGroup->id), [
+        'schedules' => [
+            [
+                'start_date' => '2026-08-27',
+                'end_date' => '2026-09-05',
+                'days' => [
+                    [
+                        'day' => 'Thursday',
+                        'exercise_ids' => [$ex1->id],
+                    ]
+                ]
+            ]
+        ]
+    ]);
+    $assignRes->assertRedirect();
+    $this->assertDatabaseHas('group_exercises', [
+        'group_id' => $newGroup->id,
+        'exercise_id' => $ex1->id,
+        'day' => 'Thursday',
+    ]);
+
+    // 8. Admin Delete Group
+    $deleteRes = $this->actingAs($admin)->delete(route('groups.destroy', $newGroup->id));
+    $deleteRes->assertRedirect(route('groups.index'));
+    $this->assertDatabaseMissing('groups', ['id' => $newGroup->id]);
 });
 
 test('coach can query eligible users and organizations via AJAX', function () {
@@ -387,14 +444,20 @@ test('coach can edit group, update instructions, and assign multiple exercises',
         'genz' => 'both',
     ]);
 
-    // Assign Exercises with multi-select support (exercise_ids array)
+    // Assign Exercises with Date Range & Day-Wise Routine (schedules)
+    $todayDayName = now()->format('l');
     $response = $this->actingAs($coach, 'coach')
         ->post(route('coach.groups.assign-exercises', $group->id), [
-            'assignments' => [
+            'schedules' => [
                 [
-                    'exercise_ids' => [123],
                     'start_date' => now()->toDateString(),
-                    'end_date' => now()->addDays(5)->toDateString(),
+                    'end_date' => now()->addDays(10)->toDateString(),
+                    'days' => [
+                        [
+                            'day' => $todayDayName,
+                            'exercise_ids' => [123],
+                        ]
+                    ]
                 ]
             ]
         ]);
@@ -403,6 +466,7 @@ test('coach can edit group, update instructions, and assign multiple exercises',
     $this->assertDatabaseHas('group_exercises', [
         'group_id' => $group->id,
         'exercise_id' => 123,
+        'day' => $todayDayName,
     ]);
 });
 
@@ -436,12 +500,14 @@ test('athlete details API returns instructions and exercises assigned for today'
         'genz' => 'both',
     ]);
 
-    // Active today
+    // Active today matching current day of the week
     \App\Models\GroupExercise::create([
         'group_id' => $group->id,
         'exercise_id' => 99,
         'start_date' => now()->subDay()->toDateString(),
-        'end_date' => now()->addDay()->toDateString(),
+        'end_date' => now()->addDays(7)->toDateString(),
+        'day' => now()->format('l'),
+        'order' => 0,
     ]);
 
     // Fetch Details API

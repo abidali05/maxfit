@@ -14,8 +14,12 @@ return new class extends Migration
         Schema::create('goals', function (Blueprint $table) {
             $table->id();
             $table->string('user_id');
+            $table->foreignId('set_id')->nullable()->constrained('sets')->nullOnDelete();
             $table->foreignId('exercise_id')->constrained('exercises')->onDelete('cascade');
             $table->string('value');
+            $table->date('start_date')->nullable();
+            $table->date('end_date')->nullable();
+            $table->longText('days')->nullable();
             $table->timestamps();
         });
     }
