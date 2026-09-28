@@ -146,6 +146,35 @@
 
     <!-- Display Toastr -->
     {!! Toastr::message() !!}
+
+    <!-- CKEditor 5 Classic CDN & Auto-Initializer -->
+    <script src="https://cdn.ckeditor.com/ckeditor5/36.0.1/classic/ckeditor.js"></script>
+    <style>
+        .ck-editor__editable_inline {
+            min-height: 160px;
+        }
+    </style>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            document.querySelectorAll('.ckeditor, .ckeditor-classic, .editor').forEach(function(el) {
+                if (!el.classList.contains('ckeditor-initialized')) {
+                    ClassicEditor
+                        .create(el, {
+                            toolbar: [ 'heading', '|', 'bold', 'italic', 'link', 'bulletedList', 'numberedList', 'blockQuote', '|', 'undo', 'redo' ]
+                        })
+                        .then(editor => {
+                            el.classList.add('ckeditor-initialized');
+                            editor.model.document.on('change:data', () => {
+                                el.value = editor.getData();
+                            });
+                        })
+                        .catch(error => {
+                            console.error('CKEditor init error:', error);
+                        });
+                }
+            });
+        });
+    </script>
     @stack('scripts')
 </body>
 

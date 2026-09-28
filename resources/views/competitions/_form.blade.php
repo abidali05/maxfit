@@ -146,8 +146,8 @@
                                 @error('terms_conditions_file')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
                             </div>
                             <div class="col-md-12">
-                                <label for="description">Description</label>
-                                <textarea class="form-control" name="description" id="description" rows="4">{{ $competitionDescription }}</textarea>
+                                <label for="description" class="form-label fw-bold">Description</label>
+                                <textarea class="form-control ckeditor" name="description" id="description" rows="4">{{ old('description', $competitionDescription) }}</textarea>
                                 @error('description')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
                             </div>
                             <div class="col-md-6 col-xl-4">

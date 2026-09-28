@@ -86,8 +86,8 @@
                             </div>
 
                             <div class="col-md-12">
-                                <label for="description" class="form-label">Description</label>
-                                <textarea class="form-control" id="description" name="description" rows="4" placeholder="Optional description...">{{ old('description', $exercise->description) }}</textarea>
+                                <label for="description" class="form-label fw-bold">Description</label>
+                                <textarea class="form-control ckeditor" id="description" name="description" rows="4" placeholder="Optional description...">{{ old('description', $exercise->description) }}</textarea>
                                 <div class="text-danger error-message" id="description-error"></div>
                             </div>
 

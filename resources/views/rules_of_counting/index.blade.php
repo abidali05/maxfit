@@ -29,7 +29,7 @@
                             <td>{{ $rule->custom_exercise_name }}</td>
                             <td>@if($rule->image_file)<img src="{{ asset('storage/' . $rule->image_file) }}" width="60">@endif</td>
                             <td>@if($rule->video_file)<a href="{{ asset('storage/' . $rule->video_file) }}" target="_blank">View</a>@endif</td>
-                            <td>{{ $rule->description }}</td>
+                            <td><div style="max-width: 300px;">{{ \Illuminate\Support\Str::limit(strip_tags($rule->description), 80) }}</div></td>
                             <td>
                                 <a href="{{ route('rulesof-counting.edit', $rule->id) }}" class="btn btn-sm btn-warning">Edit</a>
                                 <form action="{{ route('rulesof-counting.destroy', $rule->id) }}" method="POST" style="display:inline-block;">

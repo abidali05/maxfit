@@ -96,7 +96,7 @@
                         <!-- Instructions -->
                         <div class="mb-4">
                             <label for="instructions" class="form-label fw-bold">Group Instructions</label>
-                            <textarea name="instructions" id="instructions" class="form-control" rows="8">{{ old('instructions') }}</textarea>
+                            <textarea name="instructions" id="instructions" class="form-control ckeditor" rows="8">{{ old('instructions') }}</textarea>
                             @error('instructions')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
                         </div>
 
@@ -126,19 +126,8 @@
         </form>
     </div>
 
-    <!-- Load CKEditor from CDN -->
-    <script src="https://cdn.ckeditor.com/ckeditor5/36.0.1/classic/ckeditor.js"></script>
-
     <script>
         $(document).ready(function () {
-            // Initialize CKEditor on Instructions textarea
-            ClassicEditor
-                .create(document.querySelector('#instructions'), {
-                    toolbar: [ 'heading', '|', 'bold', 'italic', 'link', 'bulletedList', 'numberedList', 'blockQuote' ]
-                })
-                .catch(error => {
-                    console.error(error);
-                });
 
             // Initialize standard select2 elements
             $('.select2').select2({

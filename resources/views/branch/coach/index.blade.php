@@ -29,7 +29,7 @@
                             <td>{{ $coach->email }}</td>
                             <td>{{ $coach->phone }}</td>
                             <td>@if($coach->image)<img src="{{ asset('storage/' . $coach->image) }}" width="60">@endif</td>
-                            <td>{{ $coach->bio }}</td>
+                            <td><div style="max-width: 250px;">{{ $coach->bio ? \Illuminate\Support\Str::limit(strip_tags($coach->bio), 80) : 'N/A' }}</div></td>
                             {{-- <td>
                                 <a href="{{ route('coaches.edit', $coach->id) }}" class="btn btn-sm btn-warning">Edit</a>
                                 <form action="{{ route('coaches.destroy', $coach->id) }}" method="POST" style="display:inline-block;">

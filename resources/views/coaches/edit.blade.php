@@ -62,8 +62,8 @@
                             <div class="text-danger error-message" id="city_id-error"></div>
                         </div>
                         <div class="mb-3">
-                            <label>Bio</label>
-                            <textarea name="bio" class="form-control">{{ $coach->bio }}</textarea>
+                            <label class="form-label fw-bold">Bio</label>
+                            <textarea name="bio" id="bio" class="form-control ckeditor">{{ old('bio', $coach->bio) }}</textarea>
                             <div class="text-danger error-message" id="bio-error"></div>
                         </div>
                         <button type="submit" class="btn btn-primary" id="submitBranch">Update</button>

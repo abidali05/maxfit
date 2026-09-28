@@ -104,8 +104,8 @@
                             </div>
 
                             <div class="col-md-12">
-                                <label class="form-label">Description</label>
-                                <textarea class="form-control" name="description" rows="4" placeholder="Optional description...">{{ old('description') }}</textarea>
+                                <label class="form-label fw-bold">Description</label>
+                                <textarea class="form-control ckeditor" name="description" id="description" rows="4" placeholder="Optional description...">{{ old('description') }}</textarea>
                                 <div class="text-danger error-message" id="description-error"></div>
                                 @error('description')
                                     <span class="text-danger">{{ $message }}</span>

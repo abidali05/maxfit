@@ -41,8 +41,8 @@
                             </div>
 
                             <div class="col-md-12">
-                                <label class="form-label">Description</label>
-                                <textarea class="form-control" name="description" rows="3"></textarea>
+                                <label class="form-label fw-bold">Description</label>
+                                <textarea class="form-control ckeditor" name="description" id="description" rows="3">{{ old('description') }}</textarea>
                                 @error('description')
                                     <span class="text-danger">{{ $message }}</span>
                                 @enderror

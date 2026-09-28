@@ -33,8 +33,8 @@
                             <div class="text-danger error-message" id="image-error"></div>
                         </div>
                         <div class="mb-3">
-                            <label>Bio</label>
-                            <textarea name="bio" class="form-control">{{ $branch->bio }}</textarea>
+                            <label class="form-label fw-bold">Bio</label>
+                            <textarea name="bio" id="bio" class="form-control ckeditor">{{ old('bio', $branch->bio) }}</textarea>
                             <div class="text-danger error-message" id="bio-error"></div>
                         </div>
                         <div class="mb-3">

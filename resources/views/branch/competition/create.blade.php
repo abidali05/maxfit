@@ -206,8 +206,8 @@
                                     </div>
 
                                     <div class="col-md-12">
-                                        <label class="form-label">Description</label>
-                                        <textarea class="form-control" name="description[]" rows="4">{{ old('description.0') }}</textarea>
+                                        <label class="form-label fw-bold">Description</label>
+                                        <textarea class="form-control ckeditor" name="description[]" rows="4">{{ old('description.0') }}</textarea>
                                         @error('description.0')
                                             <span class="text-danger">{{ $message }}</span>
                                         @enderror
@@ -352,8 +352,8 @@
                         <input type="file" class="form-control" name="image[]" accept="image/*">
                     </div>
                     <div class="col-md-12">
-                        <label class="form-label">Description</label>
-                        <textarea class="form-control" name="description[]" rows="4"></textarea>
+                        <label class="form-label fw-bold">Description</label>
+                        <textarea class="form-control ckeditor" name="description[]" rows="4"></textarea>
                     </div>
                     <div class="col-md-12">
                         <button type="button" class="btn btn-danger btn-sm remove-competition">Remove Competition</button>
@@ -361,6 +361,22 @@
                 </div>
             `;
             competitionContainer.appendChild(competitionField);
+
+            // Initialize CKEditor on the new textarea
+            const newTextarea = competitionField.querySelector('textarea.ckeditor');
+            if (newTextarea && typeof ClassicEditor !== 'undefined') {
+                ClassicEditor
+                    .create(newTextarea, {
+                        toolbar: [ 'heading', '|', 'bold', 'italic', 'link', 'bulletedList', 'numberedList', 'blockQuote', '|', 'undo', 'redo' ]
+                    })
+                    .then(editor => {
+                        newTextarea.classList.add('ckeditor-initialized');
+                        editor.model.document.on('change:data', () => {
+                            newTextarea.value = editor.getData();
+                        });
+                    })
+                    .catch(error => console.error(error));
+            }
 
             // Attach org_type listener to new org_type select
             const newOrgTypeSelect = competitionField.querySelector('.org-type-select');

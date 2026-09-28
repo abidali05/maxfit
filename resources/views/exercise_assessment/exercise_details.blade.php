@@ -19,7 +19,7 @@
                                     <p><strong>Category:</strong> {{ $exercise->exercise_category->name ?? 'N/A' }}</p>
                                     <p><strong>Genz:</strong> {{ ucfirst($exercise->genz) }}</p>
                                     @if ($exercise->description)
-                                        <p><strong>Description:</strong> {{ $exercise->description }}</p>
+                                        <div class="mb-2"><strong>Description:</strong> {!! $exercise->description !!}</div>
                                     @endif
                                 </div>
                             </div>

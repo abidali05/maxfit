@@ -66,8 +66,8 @@
                             @endif
                         </div>
                         <div class="mb-3">
-                            <label>Description</label>
-                            <textarea name="description" class="form-control">{{ $competitionDetail->description }}</textarea>
+                            <label class="form-label fw-bold">Description</label>
+                            <textarea name="description" id="description" class="form-control ckeditor">{{ old('description', $competitionDetail->description) }}</textarea>
                         </div>
                         <button type="submit" class="btn btn-primary">Update</button>
                         <a href="{{ route('competition-details.index') }}" class="btn btn-secondary">Cancel</a>

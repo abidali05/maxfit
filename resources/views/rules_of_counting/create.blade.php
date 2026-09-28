@@ -35,8 +35,8 @@
                             <input type="file" name="video_file" class="form-control">
                         </div>
                         <div class="mb-3">
-                            <label>Description</label>
-                            <textarea name="description" class="form-control"></textarea>
+                            <label class="form-label fw-bold">Description</label>
+                            <textarea name="description" id="description" class="form-control ckeditor">{{ old('description') }}</textarea>
                         </div>
                         <button type="submit" class="btn btn-primary">Save</button>
                         <a href="{{ route('rulesof-counting.index') }}" class="btn btn-secondary">Cancel</a>

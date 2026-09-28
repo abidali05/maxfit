@@ -146,7 +146,7 @@
                                             @endif
                                         </td> --}}
                                         <td>
-                                            <div class="coach-bio" title="{{ $coach->bio }}">{{ $coach->bio ?: 'N/A' }}</div>
+                                            <div class="coach-bio" title="{{ strip_tags($coach->bio) }}">{{ $coach->bio ? strip_tags($coach->bio) : 'N/A' }}</div>
                                         </td>
                                         <td class="text-end">
                                             <div class="d-inline-flex align-items-center justify-content-end gap-2">

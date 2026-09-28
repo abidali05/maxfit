@@ -34,7 +34,7 @@
                         <td>{{ $ce->set->name ?? 'N/A' }}</td>
                         <td>{{ $ce->exercise->name ?? 'N/A' }}</td>
                         <td>{{ $ce->exercise->exercise_type ?? 'N/A' }}</td>
-                        <td style="max-width:300px; white-space: pre-wrap;">{{ $ce->exercise->description ?? 'N/A' }}</td>
+                        <td style="max-width:300px;">{!! $ce->exercise->description ?? 'N/A' !!}</td>
                         <td>
                             @if($ce->exercise->youtube_link)
                                 <a href="{{ $ce->exercise->youtube_link }}" target="_blank">Video</a>
