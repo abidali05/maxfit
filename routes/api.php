@@ -44,6 +44,36 @@ Route::get('cron/clean-incomplete-profiles', function (\Illuminate\Http\Request 
     ]);
 });
 
+Route::get('cron/update-user-ages', function (\Illuminate\Http\Request $request) {
+    if ($request->query('token') !== 'z7kxuLdj7T5k0KNdeEk') {
+        return response()->json(['error' => 'Unauthorized'], 401);
+    }
+
+    \Illuminate\Support\Facades\Artisan::call('users:update-age');
+    $output = \Illuminate\Support\Facades\Artisan::output();
+
+    return response()->json([
+        'success' => true,
+        'message' => 'User ages and Genz synchronization executed successfully.',
+        'output' => $output
+    ]);
+});
+
+Route::get('cron/schedule-run', function (\Illuminate\Http\Request $request) {
+    if ($request->query('token') !== 'z7kxuLdj7T5k0KNdeEk') {
+        return response()->json(['error' => 'Unauthorized'], 401);
+    }
+
+    \Illuminate\Support\Facades\Artisan::call('schedule:run');
+    $output = \Illuminate\Support\Facades\Artisan::output();
+
+    return response()->json([
+        'success' => true,
+        'message' => 'Schedule run executed successfully.',
+        'output' => $output
+    ]);
+});
+
 
 
 // ==========================================================================public routes=================================================================

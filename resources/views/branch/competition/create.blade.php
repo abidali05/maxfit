@@ -364,18 +364,8 @@
 
             // Initialize CKEditor on the new textarea
             const newTextarea = competitionField.querySelector('textarea.ckeditor');
-            if (newTextarea && typeof ClassicEditor !== 'undefined') {
-                ClassicEditor
-                    .create(newTextarea, {
-                        toolbar: [ 'heading', '|', 'bold', 'italic', 'link', 'bulletedList', 'numberedList', 'blockQuote', '|', 'undo', 'redo' ]
-                    })
-                    .then(editor => {
-                        newTextarea.classList.add('ckeditor-initialized');
-                        editor.model.document.on('change:data', () => {
-                            newTextarea.value = editor.getData();
-                        });
-                    })
-                    .catch(error => console.error(error));
+            if (newTextarea && typeof initMaxFitCKEditor === 'function') {
+                initMaxFitCKEditor(newTextarea);
             }
 
             // Attach org_type listener to new org_type select

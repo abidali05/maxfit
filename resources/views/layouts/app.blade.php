@@ -147,31 +147,60 @@
     <!-- Display Toastr -->
     {!! Toastr::message() !!}
 
-    <!-- CKEditor 5 Classic CDN & Auto-Initializer -->
-    <script src="https://cdn.ckeditor.com/ckeditor5/36.0.1/classic/ckeditor.js"></script>
+    <!-- CKEditor 4 Full Package (All Features & Toolbar Options Enabled) -->
+    <script src="https://cdn.ckeditor.com/4.22.1/full/ckeditor.js"></script>
     <style>
-        .ck-editor__editable_inline {
-            min-height: 160px;
+        .cke_notifications_area {
+            display: none !important;
         }
     </style>
     <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            document.querySelectorAll('.ckeditor, .ckeditor-classic, .editor').forEach(function(el) {
-                if (!el.classList.contains('ckeditor-initialized')) {
-                    ClassicEditor
-                        .create(el, {
-                            toolbar: [ 'heading', '|', 'bold', 'italic', 'link', 'bulletedList', 'numberedList', 'blockQuote', '|', 'undo', 'redo' ]
-                        })
-                        .then(editor => {
-                            el.classList.add('ckeditor-initialized');
-                            editor.model.document.on('change:data', () => {
-                                el.value = editor.getData();
-                            });
-                        })
-                        .catch(error => {
-                            console.error('CKEditor init error:', error);
-                        });
+        if (typeof CKEDITOR !== 'undefined') {
+            CKEDITOR.config.versionCheck = false;
+        }
+
+        function initMaxFitCKEditor(element) {
+            if (!element || element.getAttribute('data-ckeditor-ready') === 'true') {
+                return;
+            }
+            if (typeof CKEDITOR !== 'undefined') {
+                try {
+                    const instance = CKEDITOR.replace(element, {
+                        height: 220,
+                        versionCheck: false,
+                        removeButtons: '',
+                        allowedContent: true,
+                        toolbar: [
+                            { name: 'document', items: [ 'Source', '-', 'Save', 'NewPage', 'Preview', 'Print', '-', 'Templates' ] },
+                            { name: 'clipboard', items: [ 'Cut', 'Copy', 'Paste', 'PasteText', 'PasteFromWord', '-', 'Undo', 'Redo' ] },
+                            { name: 'editing', items: [ 'Find', 'Replace', '-', 'SelectAll' ] },
+                            '/',
+                            { name: 'basicstyles', items: [ 'Bold', 'Italic', 'Underline', 'Strike', 'Subscript', 'Superscript', '-', 'CopyFormatting', 'RemoveFormat' ] },
+                            { name: 'paragraph', items: [ 'NumberedList', 'BulletedList', '-', 'Outdent', 'Indent', '-', 'Blockquote', 'CreateDiv', '-', 'JustifyLeft', 'JustifyCenter', 'JustifyRight', 'JustifyBlock', '-', 'BidiLtr', 'BidiRtl' ] },
+                            { name: 'links', items: [ 'Link', 'Unlink', 'Anchor' ] },
+                            { name: 'insert', items: [ 'Image', 'Table', 'HorizontalRule', 'Smiley', 'SpecialChar', 'PageBreak', 'Iframe' ] },
+                            '/',
+                            { name: 'styles', items: [ 'Styles', 'Format', 'Font', 'FontSize' ] },
+                            { name: 'colors', items: [ 'TextColor', 'BGColor' ] },
+                            { name: 'tools', items: [ 'Maximize', 'ShowBlocks' ] }
+                        ]
+                    });
+                    element.setAttribute('data-ckeditor-ready', 'true');
+                    instance.on('change', function () {
+                        element.value = instance.getData();
+                    });
+                    instance.on('instanceReady', function () {
+                        element.value = instance.getData();
+                    });
+                } catch (err) {
+                    console.error('CKEditor init error:', err);
                 }
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            document.querySelectorAll('.ckeditor, .ckeditor-classic, .editor, textarea#instructions, textarea#bio, textarea#description').forEach(function(el) {
+                initMaxFitCKEditor(el);
             });
         });
     </script>

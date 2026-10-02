@@ -16,6 +16,7 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withSchedule(function (\Illuminate\Console\Scheduling\Schedule $schedule) {
         $schedule->command('app:clean-incomplete-profiles')->hourly();
+        $schedule->command('users:update-age')->daily();
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //
