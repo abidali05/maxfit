@@ -59,6 +59,24 @@ Route::get('cron/update-user-ages', function (\Illuminate\Http\Request $request)
     ]);
 });
 
+Route::get('cron/calculate-competition-ranks', function (\Illuminate\Http\Request $request) {
+    if ($request->query('token') !== 'z7kxuLdj7T5k0KNdeEk') {
+        return response()->json(['error' => 'Unauthorized'], 401);
+    }
+
+    $competitionId = $request->query('competition_id');
+    $params = $competitionId ? ['competition_id' => $competitionId] : [];
+
+    \Illuminate\Support\Facades\Artisan::call('competition:calculate-ranks', $params);
+    $output = \Illuminate\Support\Facades\Artisan::output();
+
+    return response()->json([
+        'success' => true,
+        'message' => 'Competition ranks calculation executed successfully.',
+        'output' => $output
+    ]);
+});
+
 Route::get('cron/schedule-run', function (\Illuminate\Http\Request $request) {
     if ($request->query('token') !== 'z7kxuLdj7T5k0KNdeEk') {
         return response()->json(['error' => 'Unauthorized'], 401);

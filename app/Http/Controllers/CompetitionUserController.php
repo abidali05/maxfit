@@ -39,19 +39,23 @@ class CompetitionUserController extends Controller
         $competition = CompetitionDetail::with(['competition', 'selectedUsers'])->findOrFail($id);
 
         foreach ($competition->selectedUsers as $selectedUser) {
-            $acceptedUser = CompetitionUser::where('user_id', $selectedUser->id)
-                ->where('status', 'accepted')
-                ->where(function ($query) use ($competition) {
-                    $query->where('competition_id', $competition->competition_id)
-                        ->orWhere('competition_detail_id', $competition->id);
-                })
-                ->orderByRaw('CASE WHEN competition_detail_id = ? THEN 0 WHEN competition_detail_id IS NULL THEN 1 ELSE 2 END', [$competition->id])
-                ->first();
+            $alreadyMapped = CompetitionUser::where('competition_detail_id', $competition->id)
+                ->where('user_id', $selectedUser->id)
+                ->exists();
 
-            if ($acceptedUser) {
-                if ($acceptedUser->competition_detail_id !== $competition->id) {
-                    $acceptedUser->update([
+            if (!$alreadyMapped) {
+                $unmappedUser = CompetitionUser::where('user_id', $selectedUser->id)
+                    ->where(function ($query) use ($competition) {
+                        $query->where('competition_id', $competition->competition_id)
+                            ->orWhereNull('competition_id');
+                    })
+                    ->whereNull('competition_detail_id')
+                    ->first();
+
+                if ($unmappedUser) {
+                    $unmappedUser->update([
                         'competition_detail_id' => $competition->id,
+                        'competition_id' => $competition->competition_id,
                     ]);
                 }
             }
@@ -59,7 +63,7 @@ class CompetitionUserController extends Controller
 
         $competition->load([
             'competitionUsers' => function ($query) {
-                $query->where('status', 'accepted');
+                $query->whereIn('status', ['accepted', 'completed']);
             },
             'competitionUsers.user',
             'competitionUsers.total',
@@ -203,12 +207,12 @@ class CompetitionUserController extends Controller
 
     public function generateResults($competitionId)
     {
-        if (config('queue.default') === 'sync') {
+        try {
             ProcessCompetitionResults::dispatchSync($competitionId);
-        } else {
-            ProcessCompetitionResults::dispatch($competitionId);
+            return redirect()->back()->with('success', 'Final results and ranks generated successfully!');
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error("Generate results error: " . $e->getMessage());
+            return redirect()->back()->with('error', 'Error generating results: ' . $e->getMessage());
         }
-
-        return redirect()->back()->with('success', 'Result generation job dispatched!');
     }
 }
